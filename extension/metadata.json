@@ -1,0 +1,17 @@
+{
+    "name": "Seabed",
+    "description": "Zero-subprocess, Wayland-native desktop icons extension for GNOME Shell rendering ~/Desktop files, Home, Trash, and mounted drives directly in the compositor background layer.\n\nDerived from Desktop Icons NG (GPL-3.0-or-later).",
+    "uuid": "seabed@ubermetroid.github.io",
+    "url": "https://github.com/UberMetroid/seabed",
+    "settings-schema": "org.gnome.shell.extensions.seabed",
+    "gettext-domain": "seabed@ubermetroid.github.io",
+    "version-name": "1.0.0",
+    "shell-version": [
+        "45",
+        "46",
+        "47",
+        "48",
+        "49",
+        "50"
+    ]
+}

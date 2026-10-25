@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.seabed" path="/org/gnome/shell/extensions/seabed/">
+    <key name="icon-size" type="s">
+      <default>'standard'</default>
+      <summary>Desktop icon zoom size</summary>
+      <description>Icon size preset: tiny (32px), small (36px), standard (48px), or large (64px).</description>
+    </key>
+    <key name="start-corner" type="s">
+      <default>'top-left'</default>
+      <summary>Desktop grid starting corner</summary>
+      <description>Corner from which desktop icons are arranged: top-left, top-right, bottom-left, or bottom-right.</description>
+    </key>
+    <key name="arrange-order" type="s">
+      <default>'NAME'</default>
+      <summary>Desktop icon sort order</summary>
+      <description>Sorting criteria for desktop entries: NAME, DESCENDINGNAME, MODIFIEDTIME, KIND, or SIZE.</description>
+    </key>
+    <key name="sort-special-folders" type="b">
+      <default>false</default>
+      <summary>Sort special folders alongside regular files</summary>
+      <description>When false, Home, Trash, and mounted drives stay pinned at the start of the grid.</description>
+    </key>
+    <key name="show-home" type="b">
+      <default>true</default>
+      <summary>Show Personal Home folder on desktop</summary>
+      <description>Display the user's home directory shortcut on the desktop grid.</description>
+    </key>
+    <key name="show-trash" type="b">
+      <default>true</default>
+      <summary>Show Trash icon on desktop</summary>
+      <description>Display the freedesktop Trash shortcut on the desktop grid.</description>
+    </key>
+    <key name="show-volumes" type="b">
+      <default>true</default>
+      <summary>Show mounted external drives on desktop</summary>
+      <description>Display mounted removable and external volumes on the desktop grid.</description>
+    </key>
+    <key name="show-network-volumes" type="b">
+      <default>false</default>
+      <summary>Show mounted network drives on desktop</summary>
+      <description>Display mounted network shares (SFTP, SMB, NFS, WebDAV) on the desktop grid.</description>
+    </key>
+    <key name="show-hidden-files" type="b">
+      <default>false</default>
+      <summary>Show hidden dotfiles on desktop</summary>
+      <description>Include hidden files and folders starting with a dot when scanning ~/Desktop.</description>
+    </key>
+    <key name="show-link-emblem" type="b">
+      <default>true</default>
+      <summary>Show symbolic link emblem badge</summary>
+      <description>Display an emblem badge on symbolic link desktop tiles.</description>
+    </key>
+    <key name="dark-text-in-labels" type="b">
+      <default>false</default>
+      <summary>Use dark text in desktop icon labels</summary>
+      <description>Render dark icon labels with light shadow for bright desktop wallpapers.</description>
+    </key>
+    <key name="single-click-open" type="b">
+      <default>false</default>
+      <summary>Open desktop items with a single click</summary>
+      <description>When false, first click selects the icon and double-click opens it.</description>
+    </key>
+    <key name="multi-monitor" type="b">
+      <default>false</default>
+      <summary>Show desktop icons across all monitors</summary>
+      <description>When true, render the desktop grid on all connected monitors instead of only the primary monitor.</description>
+    </key>
+    <key name="show-selection-border" type="b">
+      <default>true</default>
+      <summary>Show accent border ring on selected and hovered tiles</summary>
+      <description>Draw a Kelp/Reef accent border around selected and hovered desktop icon tiles.</description>
+    </key>
+    <key name="border-width" type="u">
+      <default>2</default>
+      <summary>Selection and hover border thickness in pixels</summary>
+      <description>Border thickness for selected and hovered desktop icon tiles (0-8 px).</description>
+    </key>
+    <key name="border-radius" type="u">
+      <default>12</default>
+      <summary>Desktop tile corner radius in pixels</summary>
+      <description>Corner rounding for desktop icon tiles (0-24 px).</description>
+    </key>
+    <key name="border-color-rgba" type="s">
+      <default>'rgb(255,0,0)'</default>
+      <summary>Selection and hover accent border color</summary>
+      <description>CSS RGB/RGBA color string for desktop icon selection and hover borders.</description>
+    </key>
+  </schema>
+</schemalist>

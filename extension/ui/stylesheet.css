@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Stylesheet for Seabed native background desktop icon canvas and tiles */
+
+.seabed-desktop-canvas {
+    background-color: transparent;
+}
+
+.seabed-icon-tile {
+    transition-duration: 120ms;
+    text-align: center;
+}
+
+.seabed-icon-box {
+    spacing: 4px;
+    align-items: center;
+}
+
+.seabed-icon-label {
+    font-size: 0.88em;
+    text-align: center;
+}
+
+.seabed-emblem-badge {
+    background-color: rgba(18, 22, 28, 0.84);
+    color: #f6f8fa;
+    border-radius: 99px;
+    padding: 2px;
+}
