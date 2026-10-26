@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="brand/icon-160.png" width="128" height="128" alt="Seabed Icon" />
+</p>
+
 # Seabed
 
 [![CI & EGO Bundle Verification](https://github.com/UberMetroid/seabed/actions/workflows/ci.yml/badge.svg)](https://github.com/UberMetroid/seabed/actions/workflows/ci.yml)
@@ -8,7 +12,7 @@
 
 **Seabed** (`seabed@ubermetroid.github.io`) is a fast, zero-subprocess, Wayland-native **Desktop Icons** extension for **GNOME Shell 45–50**. It renders your `~/Desktop` files, folders, `.desktop` application launchers, Personal Home folder, Trash (`trash:///`), and mounted external/network drives directly inside `Main.layoutManager._backgroundGroup`—with **zero fake `Meta.Window` objects**, **zero external GTK3 subprocesses**, Kelp/Reef accent selection borders, native right-click context menus, and a **4-tab Libadwaita Settings & About dialog**.
 
-Derived from [Desktop Icons NG (DING)](https://gitlab.com/rastersoft/desktop-icons-ng) (`ding@rastersoft.com`) — stripped of the external GTK3 `ding.js` subprocess and X11 window-title coordinate emulation hacks (`emulateX11WindowType.js`), and engineered under the same strict [`AGENTS.md`](AGENTS.md) Page Rule and EGO standards as [**Kelp**](https://github.com/UberMetroid/kelp), [**Reef**](https://github.com/UberMetroid/reef), and [**Shoal**](https://github.com/UberMetroid/shoal).
+Derived from [Desktop Icons NG (DING)](https://gitlab.com/rastersoft/desktop-icons-ng) (`ding@rastersoft.com`) — stripped of the external GTK3 `ding.js` subprocess and X11 window-title coordinate emulation hacks (`emulateX11WindowType.js`), and engineered under the same strict [`AGENTS.md`](AGENTS.md) Page Rule and EGO standards as [**Kelp**](https://github.com/UberMetroid/kelp), [**Reef**](https://github.com/UberMetroid/reef), and [**Shoal**](https://github.com/UberMetroid/shoal). Official project artwork is archived in [`brand/`](brand/) (`icon-512.png`, `icon-256.png`, `icon-160.png`, `favicon-64.png`).
 
 > 🎓 **Support Seabed — [Tuition, Not Coffee — Help send my daughter to college](https://ubermetroid.github.io/tuition-not-coffee)** · 🌐 [**Project Website (`ubermetroid.github.io/seabed`)**](https://ubermetroid.github.io/seabed/) · ⭐ [**Star UberMetroid/seabed on GitHub**](https://github.com/UberMetroid/seabed)
 
