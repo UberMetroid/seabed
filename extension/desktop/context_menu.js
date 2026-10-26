@@ -40,22 +40,34 @@ export function create_new_desktop_folder(on_done) {
 }
 
 export function empty_trash_async(on_done) {
-    const trash = Gio.File.new_for_uri('trash:///');
-    trash.enumerate_children_async(
-        'standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, null,
-        (src, res) => {
-            let enumerator;
-            try { enumerator = src.enumerate_children_finish(res); } catch (_e) { on_done?.(); return; }
-            enumerator.next_files_async(MAX_TRASH_PROBES, GLib.PRIORITY_DEFAULT, null, (esrc, eres) => {
-                let infos = [];
-                try { infos = esrc.next_files_finish(eres); } catch (_e2) { infos = []; }
-                try { esrc.close(null); } catch (_e3) { /* ignore */ }
-                for (const info of infos) {
-                    const child = trash.get_child(info.get_name());
-                    child.delete_async(GLib.PRIORITY_DEFAULT, null, () => { /* ignore */ });
-                }
+    Gio.DBus.session.call(
+        'org.gnome.Nautilus', '/org/gnome/Nautilus/FileOperations2',
+        'org.gnome.Nautilus.FileOperations2', 'EmptyTrash',
+        new GLib.Variant('(ba{sv})', [false, {}]),
+        null, Gio.DBusCallFlags.NONE, 3000, null,
+        (conn, res) => {
+            try {
+                conn.call_finish(res);
                 on_done?.();
-            });
+                return;
+            } catch (_e) { /* fallback to GIO trash enumeration */ }
+            const trash = Gio.File.new_for_uri('trash:///');
+            trash.enumerate_children_async(
+                'standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, null,
+                (src, eres) => {
+                    let enumerator;
+                    try { enumerator = src.enumerate_children_finish(eres); } catch (_e2) { on_done?.(); return; }
+                    enumerator.next_files_async(MAX_TRASH_PROBES, GLib.PRIORITY_DEFAULT, null, (esrc, nres) => {
+                        let infos = [];
+                        try { infos = esrc.next_files_finish(nres); } catch (_e3) { infos = []; }
+                        try { esrc.close(null); } catch (_e4) { /* ignore */ }
+                        for (const info of infos) {
+                            trash.get_child(info.get_name()).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+                        }
+                        on_done?.();
+                    });
+                },
+            );
         },
     );
 }

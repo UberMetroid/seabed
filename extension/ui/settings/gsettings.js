@@ -100,7 +100,8 @@ export class ExtensionSettings {
         if (!this.ext.settings_schema?.has_key('icon-positions')) return;
         const clean = {};
         if (map && typeof map === 'object') {
-            for (const [k, v] of Object.entries(map)) {
+            const entries = Object.entries(map).slice(-256);
+            for (const [k, v] of entries) {
                 if (v && typeof v.col === 'number' && typeof v.row === 'number') {
                     clean[k] = {
                         col: Math.max(0, Math.min(128, Math.floor(v.col))),
@@ -113,6 +114,19 @@ export class ExtensionSettings {
         if (this.ext.get_string('icon-positions') !== json) {
             this.ext.set_string('icon-positions', json);
         }
+    }
+
+    prune_icon_positions(valid_ids) {
+        if (!(valid_ids instanceof Set)) return;
+        const current = this.icon_positions();
+        let changed = false;
+        for (const key of Object.keys(current)) {
+            if (!valid_ids.has(key)) {
+                delete current[key];
+                changed = true;
+            }
+        }
+        if (changed) this.set_icon_positions(current);
     }
 
     set_icon_slot(id, col, row) {

@@ -15,35 +15,47 @@ import { is_drop_target_entry } from './context_menu.js';
 
 const DOUBLE_CLICK_MS = 400;
 
-export function find_open_file_manager_target_at(sx, sy) {
+export function refresh_file_manager_cache(cache) {
     try {
-        let cur = global.stage?.get_actor_at_pos?.(Clutter.PickMode.ALL, sx, sy);
-        let meta_win = null;
-        while (cur) {
-            if (typeof cur.get_meta_window === 'function') { meta_win = cur.get_meta_window(); break; }
-            cur = cur.get_parent?.();
-        }
-        if (!meta_win) return null;
-
-        const reply = Gio.DBus.session.call_sync(
+        Gio.DBus.session.call(
             'org.freedesktop.FileManager1', '/org/freedesktop/FileManager1',
             'org.freedesktop.DBus.Properties', 'GetAll',
             new GLib.Variant('(s)', ['org.freedesktop.FileManager1']),
             new GLib.VariantType('(a{sv})'), Gio.DBusCallFlags.NONE, 400, null,
+            (conn, res) => {
+                try {
+                    const [props] = conn.call_finish(res).deepUnpack();
+                    cache.win_map = props.OpenWindowsWithLocations ? props.OpenWindowsWithLocations.deepUnpack() : {};
+                    cache.locs = props.OpenLocations ? props.OpenLocations.deepUnpack() : [];
+                } catch (_e) { /* ignore */ }
+            },
         );
-        const [props] = reply.deepUnpack();
-        const win_map = props.OpenWindowsWithLocations ? props.OpenWindowsWithLocations.deepUnpack() : {};
-        const locs = props.OpenLocations ? props.OpenLocations.deepUnpack() : [];
+    } catch (_e2) { /* ignore */ }
+}
+
+export function find_open_file_manager_target_at(sx, sy, cache) {
+    try {
+        let cur = global.stage?.get_actor_at_pos?.(Clutter.PickMode.ALL, sx, sy);
+        let meta_win = null;
+        while (cur) {
+            meta_win = cur.meta_window || (typeof cur.get_meta_window === 'function' ? cur.get_meta_window() : null);
+            if (meta_win) break;
+            cur = cur.get_parent?.();
+        }
+        if (!meta_win) return null;
+
+        const win_map = cache?.win_map || {};
+        const locs = cache?.locs || [];
         const obj_path = meta_win.get_gtk_window_object_path?.() || '';
         if (obj_path) {
             for (const [key, uris] of Object.entries(win_map)) {
-                const match = key === obj_path || key.endsWith(obj_path) || obj_path.endsWith(key);
+                const match = key === obj_path || key.endsWith(obj_path);
                 if (match && Array.isArray(uris) && uris.length > 0) return uris[0];
             }
         }
         const app_id = (meta_win.get_gtk_application_id?.() || '').toLowerCase();
         const wm_cls = (meta_win.get_wm_class?.() || '').toLowerCase();
-        const is_fm = app_id.includes('nautilus') || wm_cls.includes('nautilus') || wm_cls.includes('files');
+        const is_fm = app_id.includes('nautilus') || wm_cls.includes('nautilus') || app_id.includes('filemanager');
         if (is_fm && Array.isArray(locs) && locs.length > 0) return locs[0];
     } catch (_e) { /* ignore */ }
     return null;
@@ -76,50 +88,37 @@ export class DesktopIconTile {
         this.last_click_us = 0;
 
         this.actor = new St.Button({
-            style_class: 'seabed-icon-tile',
-            reactive: true,
-            can_focus: true,
-            track_hover: true,
-            button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
+            style_class: 'seabed-icon-tile', reactive: true, can_focus: true,
+            track_hover: true, button_mask: St.ButtonMask.ONE,
         });
         this.actor._delegate = this;
 
         const vbox = new St.BoxLayout({
-            style_class: 'seabed-icon-box',
-            vertical: true,
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.START,
+            style_class: 'seabed-icon-box', vertical: true,
+            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.START,
         });
-
         const icon_stack = new St.Widget({
-            layout_manager: new Clutter.BinLayout(),
-            x_align: Clutter.ActorAlign.CENTER,
+            layout_manager: new Clutter.BinLayout(), x_align: Clutter.ActorAlign.CENTER,
         });
         const dims = compute_cell_dimensions(this.settings.icon_size());
         this.icon = new St.Icon({
-            gicon: entry.gicon,
-            icon_size: dims.icon_px,
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
+            gicon: entry.gicon, icon_size: dims.icon_px,
+            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
         });
         icon_stack.add_child(this.icon);
 
         if (entry.is_symlink && this.settings.show_link_emblem()) {
-            const badge = new St.Icon({
+            icon_stack.add_child(new St.Icon({
                 icon_name: 'emblem-symbolic-link',
                 icon_size: Math.max(12, Math.round(dims.icon_px * 0.32)),
                 style_class: 'seabed-emblem-badge',
-                x_align: Clutter.ActorAlign.END,
-                y_align: Clutter.ActorAlign.END,
-            });
-            icon_stack.add_child(badge);
+                x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END,
+            }));
         }
         vbox.add_child(icon_stack);
 
         this.label = new St.Label({
-            text: entry.name,
-            style_class: 'seabed-icon-label',
-            x_align: Clutter.ActorAlign.CENTER,
+            text: entry.name, style_class: 'seabed-icon-label', x_align: Clutter.ActorAlign.CENTER,
         });
         const ct = this.label.clutter_text;
         if (ct) {
@@ -135,14 +134,11 @@ export class DesktopIconTile {
             this.hovered = Boolean(this.actor.hover);
             this.sync_style();
         });
-        this._press_sig = this.actor.connect('button-press-event', (_actor, event) => this._on_button_press(event));
-        this._click_sig = this.actor.connect('clicked', (_actor, clicked_button) => {
-            this._activate_button(clicked_button || 1);
-        });
+        this._press_sig = 0;
+        this._click_sig = this.actor.connect('clicked', () => this._activate_primary());
         if (typeof Clutter.ClickGesture === 'function') {
             const right_gesture = new Clutter.ClickGesture({
-                required_button: Clutter.BUTTON_SECONDARY,
-                recognize_on_press: true,
+                required_button: Clutter.BUTTON_SECONDARY, recognize_on_press: true,
             });
             right_gesture.connect('recognize', () => {
                 this.callbacks?.on_select?.(this);
@@ -150,10 +146,23 @@ export class DesktopIconTile {
                 this.callbacks?.on_context_menu?.(this, coords.x, coords.y);
             });
             this.actor.add_action(right_gesture);
+        } else {
+            this._press_sig = this.actor.connect('button-press-event', (_actor, event) => {
+                if (event.get_button() === 3) {
+                    const [sx, sy] = event.get_coords();
+                    this.callbacks?.on_select?.(this);
+                    this.callbacks?.on_context_menu?.(this, sx, sy);
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
         }
         if (DND && typeof DND.makeDraggable === 'function') {
             this._draggable = DND.makeDraggable(this.actor, { restoreOnSuccess: false, dragActorOpacity: 215 });
-            this._draggable.connect('drag-begin', () => this.callbacks?.on_select?.(this));
+            this._draggable.connect('drag-begin', () => {
+                this.callbacks?.on_select?.(this);
+                this.callbacks?.on_drag_begin?.(this);
+            });
         }
         this.sync_style();
     }
@@ -163,18 +172,11 @@ export class DesktopIconTile {
         return new St.Icon({ gicon: this.entry.gicon, icon_size: dims.icon_px, opacity: 220 });
     }
 
-    getDragActorSource() {
-        return this.icon;
-    }
+    getDragActorSource() { return this.icon; }
 
     handleDragOver(source) {
-        if (!source || source === this || !source.entry || source.entry.is_special) {
-            return DND.DragMotionResult.CONTINUE;
-        }
-        if (is_drop_target_entry(this.entry)) {
-            return DND.DragMotionResult.MOVE_DROP;
-        }
-        return DND.DragMotionResult.CONTINUE;
+        if (!source || source === this || !source.entry || source.entry.is_special) return DND.DragMotionResult.CONTINUE;
+        return is_drop_target_entry(this.entry) ? DND.DragMotionResult.MOVE_DROP : DND.DragMotionResult.CONTINUE;
     }
 
     acceptDrop(source) {
@@ -183,36 +185,19 @@ export class DesktopIconTile {
         return Boolean(this.callbacks?.on_drop_into_entry?.(source.entry, this.entry));
     }
 
-    _activate_button(btn, sx = 0, sy = 0) {
-        if (btn === 3) {
-            this.callbacks?.on_select?.(this);
-            if (sx === 0 && sy === 0 && global.get_pointer) {
-                [sx, sy] = global.get_pointer();
-            }
-            this.callbacks?.on_context_menu?.(this, sx, sy);
-            return Clutter.EVENT_STOP;
+    _activate_primary() {
+        this.callbacks?.on_select?.(this);
+        if (this.settings.single_click_open()) {
+            launch_desktop_entry(this.entry);
+            return;
         }
-        if (btn === 1) {
-            this.callbacks?.on_select?.(this);
-            if (this.settings.single_click_open()) {
-                launch_desktop_entry(this.entry);
-                return Clutter.EVENT_STOP;
-            }
-            const now_us = GLib.get_monotonic_time();
-            if (now_us - this.last_click_us <= DOUBLE_CLICK_MS * 1000) {
-                this.last_click_us = 0;
-                launch_desktop_entry(this.entry);
-            } else {
-                this.last_click_us = now_us;
-            }
-            return Clutter.EVENT_STOP;
+        const now_us = GLib.get_monotonic_time();
+        if (now_us - this.last_click_us <= DOUBLE_CLICK_MS * 1000) {
+            this.last_click_us = 0;
+            launch_desktop_entry(this.entry);
+        } else {
+            this.last_click_us = now_us;
         }
-        return Clutter.EVENT_PROPAGATE;
-    }
-
-    _on_button_press(event) {
-        const [sx, sy] = event.get_coords();
-        return this._activate_button(event.get_button(), sx, sy);
     }
 
     set_selected(selected) {

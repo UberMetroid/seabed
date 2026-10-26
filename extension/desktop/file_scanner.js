@@ -147,11 +147,10 @@ export class DesktopFileScanner {
                     try {
                         const enumerator = src.enumerate_children_finish(res);
                         enumerator.next_files_async(1, GLib.PRIORITY_DEFAULT, cancel, (esrc, eres) => {
-                            try {
-                                const list = esrc.next_files_finish(eres);
-                                esrc.close(null);
-                                resolve(Array.isArray(list) && list.length > 0);
-                            } catch (_e2) { resolve(false); }
+                            let list = [];
+                            try { list = esrc.next_files_finish(eres); } catch (_e2) { list = []; }
+                            try { esrc.close(null); } catch (_e3) { /* ignore */ }
+                            resolve(Array.isArray(list) && list.length > 0);
                         });
                     } catch (_e) { resolve(false); }
                 },
@@ -199,12 +198,13 @@ export class DesktopFileScanner {
         const is_launcher = !is_dir && raw_name.endsWith('.desktop') && path !== null;
         const mime = (info.get_content_type() || '').toLowerCase();
         const thumb = info.get_attribute_byte_string('thumbnail::path');
+        const size = Number(info.get_size()) || 0;
         let display_name = info.get_display_name() || raw_name;
         let gicon = info.get_icon() || Gio.ThemedIcon.new(is_dir ? 'folder' : 'text-x-generic');
 
         if (thumb && GLib.file_test(thumb, GLib.FileTest.IS_REGULAR)) {
             gicon = Gio.FileIcon.new(Gio.File.new_for_path(thumb));
-        } else if (!is_dir && mime.startsWith('image/') && path) {
+        } else if (!is_dir && mime.startsWith('image/') && path && size > 0 && size <= 16777216) {
             gicon = Gio.FileIcon.new(child);
         } else if (is_launcher) {
             try {
@@ -219,7 +219,7 @@ export class DesktopFileScanner {
         return {
             id: `file:${child.get_uri()}`, name: display_name, uri: child.get_uri(), path, gicon,
             kind: is_dir ? 'folder' : (is_launcher ? 'launcher' : (mime || 'file')),
-            size: Number(info.get_size()) || 0,
+            size,
             mtime: Number(info.get_attribute_uint64('time::modified')) || 0,
             is_special: false, is_symlink: Boolean(info.get_is_symlink()),
             is_desktop_launcher: is_launcher, mount: null,

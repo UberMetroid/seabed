@@ -126,10 +126,10 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.1.0',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.1.1',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
-        'thumbnail::path', 'Gio.FileIcon.new',
+        'thumbnail::path', 'Gio.FileIcon.new', '"session-modes"', 'refresh_file_manager_cache',
     ];
     for (const req of reqs) assert(combined.includes(req), `Missing invariant: ${req}`);
     assert(!combined.includes('Rust installer') && !combined.includes('cargo install'), 'No Rust CLI reference');
@@ -195,8 +195,10 @@ async function verify_behavioral_and_gtk_suite() {
     assert(tl.length === 3 && tl[0].x === 16 && tl[0].y === 48 && tl[1].y > tl[0].y, 'top-left grid');
     assert(tr[0].x > 1700 && bl[0].y > 900 && br[0].x > 1700 && br[0].y > 900, 'all 4 start corners');
     s.set_icon_slot('f2', 3, 2);
+    s.set_icon_slot('stale', 5, 5);
+    s.prune_icon_positions(new Set(['f2', 'f1']));
     const custom_pos = compute_grid_positions(by_name, wa, 112, 108, 'top-left', 8, s.icon_positions());
-    assert(custom_pos[2].col === 3 && custom_pos[2].row === 2, 'custom drag-and-drop grid slot');
+    assert(custom_pos[2].col === 3 && custom_pos[2].row === 2 && !s.icon_positions().stale, 'custom slot & prune');
     const snapped = snap_pixel_to_slot(custom_pos[2].x, custom_pos[2].y, wa, 112, 108, 'top-left', 8);
     assert(snapped.col === 3 && snapped.row === 2, 'snap pixel to grid slot');
     s.clear_icon_positions();
