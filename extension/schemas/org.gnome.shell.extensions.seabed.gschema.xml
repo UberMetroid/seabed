@@ -86,5 +86,10 @@
       <summary>Selection and hover accent border color</summary>
       <description>CSS RGB/RGBA color string for desktop icon selection and hover borders.</description>
     </key>
+    <key name="icon-positions" type="s">
+      <default>'{}'</default>
+      <summary>Custom desktop icon grid slot coordinates</summary>
+      <description>JSON map of entry ID to custom {col, row} grid slot coordinates set via drag-and-drop.</description>
+    </key>
   </schema>
 </schemalist>

@@ -60,7 +60,7 @@ export function empty_trash_async(on_done) {
     );
 }
 
-function open_terminal_in_dir(dir_path) {
+export function open_terminal_in_dir(dir_path) {
     if (!dir_path) return;
     const candidates = [
         'org.gnome.Ptyxis.desktop', 'org.gnome.Console.desktop', 'org.gnome.Terminal.desktop',
@@ -73,6 +73,46 @@ function open_terminal_in_dir(dir_path) {
         } catch (_e) { /* try next */ }
     }
     open_uri_in_files(Gio.File.new_for_path(dir_path).get_uri());
+}
+
+export function is_drop_target_entry(entry) {
+    if (!entry) return false;
+    return entry.kind === 'folder' || entry.kind === 'home' || entry.kind === 'volume' || entry.kind === 'trash';
+}
+
+export function move_uri_to_target(source_uri, target_uri, on_done) {
+    if (!source_uri || !target_uri || source_uri === target_uri) return false;
+    try {
+        const src = Gio.File.new_for_uri(source_uri);
+        if (target_uri === 'trash:///') {
+            src.trash_async(GLib.PRIORITY_DEFAULT, null, () => on_done?.());
+            return true;
+        }
+        const dst_dir = Gio.File.new_for_uri(target_uri);
+        const basename = src.get_basename();
+        if (!basename) return false;
+        const dst = dst_dir.get_child(basename);
+        if (src.equal(dst) || src.get_parent()?.equal(dst_dir)) return false;
+
+        Gio.DBus.session.call(
+            'org.gnome.Nautilus', '/org/gnome/Nautilus/FileOperations2',
+            'org.gnome.Nautilus.FileOperations2', 'MoveURIs',
+            new GLib.Variant('(assa{sv})', [[source_uri], target_uri, {}]),
+            null, Gio.DBusCallFlags.NONE, 3000, null,
+            (conn, res) => {
+                try {
+                    conn.call_finish(res);
+                    on_done?.();
+                } catch (_e) {
+                    try { src.move(dst, Gio.FileCopyFlags.NONE, null, null); } catch (_e2) { /* ignore */ }
+                    on_done?.();
+                }
+            },
+        );
+        return true;
+    } catch (_e) {
+        return false;
+    }
 }
 
 export class DesktopContextMenu {
@@ -144,7 +184,10 @@ export class DesktopContextMenu {
         const sort_sub = new PopupMenu.PopupSubMenuMenuItem('Sort Desktop By');
         const active_order = this.settings.arrange_order();
         for (const [code, label] of SORT_MENU_OPTIONS) {
-            const item = sort_sub.menu.addAction(label, () => this.settings.set_arrange_order(code));
+            const item = sort_sub.menu.addAction(label, () => {
+                this.settings.clear_icon_positions();
+                this.settings.set_arrange_order(code);
+            });
             if (typeof item.setOrnament === 'function') {
                 item.setOrnament(code === active_order ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NONE);
             }
@@ -154,6 +197,7 @@ export class DesktopContextMenu {
         if (this.settings.show_trash()) {
             this._add_item('Empty Trash', () => empty_trash_async(() => this.on_refresh?.()));
         }
+        this._add_item('Arrange All Icons to Grid', () => this.settings.clear_icon_positions());
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._append_common_footer();

@@ -86,6 +86,46 @@ export class ExtensionSettings {
         }
     }
 
+    icon_positions() {
+        if (!this.ext.settings_schema?.has_key('icon-positions')) return {};
+        try {
+            const parsed = JSON.parse(this.ext.get_string('icon-positions') || '{}');
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch (_e) {
+            return {};
+        }
+    }
+
+    set_icon_positions(map) {
+        if (!this.ext.settings_schema?.has_key('icon-positions')) return;
+        const clean = {};
+        if (map && typeof map === 'object') {
+            for (const [k, v] of Object.entries(map)) {
+                if (v && typeof v.col === 'number' && typeof v.row === 'number') {
+                    clean[k] = {
+                        col: Math.max(0, Math.min(128, Math.floor(v.col))),
+                        row: Math.max(0, Math.min(128, Math.floor(v.row))),
+                    };
+                }
+            }
+        }
+        const json = JSON.stringify(clean);
+        if (this.ext.get_string('icon-positions') !== json) {
+            this.ext.set_string('icon-positions', json);
+        }
+    }
+
+    set_icon_slot(id, col, row) {
+        if (!id) return;
+        const map = this.icon_positions();
+        map[id] = { col: Math.max(0, Math.floor(col)), row: Math.max(0, Math.floor(row)) };
+        this.set_icon_positions(map);
+    }
+
+    clear_icon_positions() {
+        this.set_icon_positions({});
+    }
+
     reset_defaults() {
         this.set_icon_size('standard');
         this.set_start_corner('top-left');
@@ -104,5 +144,6 @@ export class ExtensionSettings {
         this.set_border_width(2);
         this.set_border_radius(12);
         this.set_border_color_rgba('rgb(255,0,0)');
+        this.clear_icon_positions();
     }
 }

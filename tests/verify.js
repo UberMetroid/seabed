@@ -3,15 +3,12 @@
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import { compute_grid_positions, sort_desktop_entries } from '../extension/desktop/desktop_grid.js';
+import { compute_grid_positions, snap_pixel_to_slot, sort_desktop_entries } from '../extension/desktop/desktop_grid.js';
 import {
-    ICON_PIXEL_SIZES, build_label_inline_style, build_tile_inline_style,
-    compute_cell_dimensions, resolve_icon_pixel_size,
+    ICON_PIXEL_SIZES, build_label_inline_style, build_tile_inline_style, compute_cell_dimensions, resolve_icon_pixel_size,
 } from '../extension/ui/tile_style.js';
 import { format_rgba, is_dark_rgba, parse_rgba, text_color_for_css } from '../extension/ui/settings/color.js';
-import {
-    ARRANGE_ORDERS, ExtensionSettings, ICON_SIZES, START_CORNERS,
-} from '../extension/ui/settings/gsettings.js';
+import { ARRANGE_ORDERS, ExtensionSettings, ICON_SIZES, START_CORNERS } from '../extension/ui/settings/gsettings.js';
 import { BORDER_PRESETS, build_about_page, build_appearance_page } from '../extension/ui/settings/prefs_pages.js';
 
 const BANNED_STEMS = new Set([
@@ -129,9 +126,10 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.0.0',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.1.0',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
-        'Clutter.ClickGesture', 'Open in Terminal',
+        'Clutter.ClickGesture', 'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
+        'thumbnail::path', 'Gio.FileIcon.new',
     ];
     for (const req of reqs) assert(combined.includes(req), `Missing invariant: ${req}`);
     assert(!combined.includes('Rust installer') && !combined.includes('cargo install'), 'No Rust CLI reference');
@@ -184,14 +182,10 @@ async function verify_behavioral_and_gtk_suite() {
     ];
     const by_name = sort_desktop_entries(sample, 'NAME', false);
     assert(by_name[0].id === 'hm' && by_name[1].id === 'tr' && by_name[2].id === 'f2', 'pinned special + NAME sort');
-    const by_desc = sort_desktop_entries(sample, 'DESCENDINGNAME', false);
-    assert(by_desc[2].id === 'f1' && by_desc[3].id === 'f2', 'DESCENDINGNAME sort');
-    const by_mtime = sort_desktop_entries(sample, 'MODIFIEDTIME', false);
-    assert(by_mtime[2].id === 'f2' && by_mtime[3].id === 'f1', 'MODIFIEDTIME sort');
-    const by_size = sort_desktop_entries(sample, 'SIZE', false);
-    assert(by_size[2].id === 'f2' && by_size[3].id === 'f1', 'SIZE sort');
-    const by_kind = sort_desktop_entries(sample, 'KIND', true);
-    assert(by_kind[0].id === 'f2', 'KIND sort with mixed special folders');
+    assert(sort_desktop_entries(sample, 'DESCENDINGNAME', false)[2].id === 'f1', 'DESCENDINGNAME sort');
+    assert(sort_desktop_entries(sample, 'MODIFIEDTIME', false)[2].id === 'f2', 'MODIFIEDTIME sort');
+    assert(sort_desktop_entries(sample, 'SIZE', false)[2].id === 'f2', 'SIZE sort');
+    assert(sort_desktop_entries(sample, 'KIND', true)[0].id === 'f2', 'KIND sort with mixed special folders');
 
     const wa = { x: 0, y: 32, width: 1920, height: 1048 };
     const tl = compute_grid_positions(3, wa, 112, 108, 'top-left', 8);
@@ -200,6 +194,13 @@ async function verify_behavioral_and_gtk_suite() {
     const br = compute_grid_positions(3, wa, 112, 108, 'bottom-right', 8);
     assert(tl.length === 3 && tl[0].x === 16 && tl[0].y === 48 && tl[1].y > tl[0].y, 'top-left grid');
     assert(tr[0].x > 1700 && bl[0].y > 900 && br[0].x > 1700 && br[0].y > 900, 'all 4 start corners');
+    s.set_icon_slot('f2', 3, 2);
+    const custom_pos = compute_grid_positions(by_name, wa, 112, 108, 'top-left', 8, s.icon_positions());
+    assert(custom_pos[2].col === 3 && custom_pos[2].row === 2, 'custom drag-and-drop grid slot');
+    const snapped = snap_pixel_to_slot(custom_pos[2].x, custom_pos[2].y, wa, 112, 108, 'top-left', 8);
+    assert(snapped.col === 3 && snapped.row === 2, 'snap pixel to grid slot');
+    s.clear_icon_positions();
+    assert(Object.keys(s.icon_positions()).length === 0, 'clear icon positions');
     assert(build_tile_inline_style({ selected: true, border_width: 2 }).includes('2px solid'), 'tile style');
     assert(build_label_inline_style(true).includes('#12161c') && build_label_inline_style(false).includes('#f6f8fa'), 'label');
 

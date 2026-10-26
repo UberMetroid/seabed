@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// St.Button desktop icon tile actor with symlink badge, hover/selection border, and click dispatch.
+// St.Button desktop icon tile actor with symlink badge, DnD, hover/selection border, and click dispatch.
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
@@ -7,11 +7,47 @@ import Gio from 'gi://Gio';
 import GioUnix from 'gi://GioUnix';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import {
     build_label_inline_style, build_tile_inline_style, compute_cell_dimensions,
 } from '../ui/tile_style.js';
+import { is_drop_target_entry } from './context_menu.js';
 
 const DOUBLE_CLICK_MS = 400;
+
+export function find_open_file_manager_target_at(sx, sy) {
+    try {
+        let cur = global.stage?.get_actor_at_pos?.(Clutter.PickMode.ALL, sx, sy);
+        let meta_win = null;
+        while (cur) {
+            if (typeof cur.get_meta_window === 'function') { meta_win = cur.get_meta_window(); break; }
+            cur = cur.get_parent?.();
+        }
+        if (!meta_win) return null;
+
+        const reply = Gio.DBus.session.call_sync(
+            'org.freedesktop.FileManager1', '/org/freedesktop/FileManager1',
+            'org.freedesktop.DBus.Properties', 'GetAll',
+            new GLib.Variant('(s)', ['org.freedesktop.FileManager1']),
+            new GLib.VariantType('(a{sv})'), Gio.DBusCallFlags.NONE, 400, null,
+        );
+        const [props] = reply.deepUnpack();
+        const win_map = props.OpenWindowsWithLocations ? props.OpenWindowsWithLocations.deepUnpack() : {};
+        const locs = props.OpenLocations ? props.OpenLocations.deepUnpack() : [];
+        const obj_path = meta_win.get_gtk_window_object_path?.() || '';
+        if (obj_path) {
+            for (const [key, uris] of Object.entries(win_map)) {
+                const match = key === obj_path || key.endsWith(obj_path) || obj_path.endsWith(key);
+                if (match && Array.isArray(uris) && uris.length > 0) return uris[0];
+            }
+        }
+        const app_id = (meta_win.get_gtk_application_id?.() || '').toLowerCase();
+        const wm_cls = (meta_win.get_wm_class?.() || '').toLowerCase();
+        const is_fm = app_id.includes('nautilus') || wm_cls.includes('nautilus') || wm_cls.includes('files');
+        if (is_fm && Array.isArray(locs) && locs.length > 0) return locs[0];
+    } catch (_e) { /* ignore */ }
+    return null;
+}
 
 export function launch_desktop_entry(entry) {
     if (!entry) return;
@@ -46,6 +82,7 @@ export class DesktopIconTile {
             track_hover: true,
             button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
         });
+        this.actor._delegate = this;
 
         const vbox = new St.BoxLayout({
             style_class: 'seabed-icon-box',
@@ -114,7 +151,36 @@ export class DesktopIconTile {
             });
             this.actor.add_action(right_gesture);
         }
+        if (DND && typeof DND.makeDraggable === 'function') {
+            this._draggable = DND.makeDraggable(this.actor, { restoreOnSuccess: false, dragActorOpacity: 215 });
+            this._draggable.connect('drag-begin', () => this.callbacks?.on_select?.(this));
+        }
         this.sync_style();
+    }
+
+    getDragActor() {
+        const dims = compute_cell_dimensions(this.settings.icon_size());
+        return new St.Icon({ gicon: this.entry.gicon, icon_size: dims.icon_px, opacity: 220 });
+    }
+
+    getDragActorSource() {
+        return this.icon;
+    }
+
+    handleDragOver(source) {
+        if (!source || source === this || !source.entry || source.entry.is_special) {
+            return DND.DragMotionResult.CONTINUE;
+        }
+        if (is_drop_target_entry(this.entry)) {
+            return DND.DragMotionResult.MOVE_DROP;
+        }
+        return DND.DragMotionResult.CONTINUE;
+    }
+
+    acceptDrop(source) {
+        if (!source || source === this || !source.entry || source.entry.is_special) return false;
+        if (!is_drop_target_entry(this.entry)) return false;
+        return Boolean(this.callbacks?.on_drop_into_entry?.(source.entry, this.entry));
     }
 
     _activate_button(btn, sx = 0, sy = 0) {
@@ -179,6 +245,7 @@ export class DesktopIconTile {
 
     destroy() {
         if (this.actor) {
+            this.actor._delegate = null;
             if (this._hover_sig) { this.actor.disconnect(this._hover_sig); this._hover_sig = 0; }
             if (this._press_sig) { this.actor.disconnect(this._press_sig); this._press_sig = 0; }
             if (this._click_sig) { this.actor.disconnect(this._click_sig); this._click_sig = 0; }

@@ -12,7 +12,7 @@ export const MAX_VOLUMES = 32;
 const QUERY_ATTRS = [
     'standard::name', 'standard::display-name', 'standard::type', 'standard::icon',
     'standard::content-type', 'standard::size', 'standard::is-hidden',
-    'standard::is-symlink', 'time::modified',
+    'standard::is-symlink', 'time::modified', 'thumbnail::path',
 ].join(',');
 
 export function resolve_desktop_dir_path() {
@@ -197,10 +197,16 @@ export class DesktopFileScanner {
         const path = child.get_path();
         const is_dir = info.get_file_type() === Gio.FileType.DIRECTORY;
         const is_launcher = !is_dir && raw_name.endsWith('.desktop') && path !== null;
+        const mime = (info.get_content_type() || '').toLowerCase();
+        const thumb = info.get_attribute_byte_string('thumbnail::path');
         let display_name = info.get_display_name() || raw_name;
         let gicon = info.get_icon() || Gio.ThemedIcon.new(is_dir ? 'folder' : 'text-x-generic');
 
-        if (is_launcher) {
+        if (thumb && GLib.file_test(thumb, GLib.FileTest.IS_REGULAR)) {
+            gicon = Gio.FileIcon.new(Gio.File.new_for_path(thumb));
+        } else if (!is_dir && mime.startsWith('image/') && path) {
+            gicon = Gio.FileIcon.new(child);
+        } else if (is_launcher) {
             try {
                 const app = GioUnix.DesktopAppInfo.new_from_filename(path);
                 if (app) {
@@ -212,7 +218,7 @@ export class DesktopFileScanner {
 
         return {
             id: `file:${child.get_uri()}`, name: display_name, uri: child.get_uri(), path, gicon,
-            kind: is_dir ? 'folder' : (is_launcher ? 'launcher' : (info.get_content_type() || 'file')),
+            kind: is_dir ? 'folder' : (is_launcher ? 'launcher' : (mime || 'file')),
             size: Number(info.get_size()) || 0,
             mtime: Number(info.get_attribute_uint64('time::modified')) || 0,
             is_special: false, is_symlink: Boolean(info.get_is_symlink()),
