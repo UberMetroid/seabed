@@ -26,3 +26,8 @@
     border-radius: 99px;
     padding: 2px;
 }
+
+.seabed-drop-preview {
+    transition-duration: 90ms;
+}
+

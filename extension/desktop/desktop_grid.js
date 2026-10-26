@@ -155,3 +155,47 @@ export function compute_grid_positions(
     }
     return positions;
 }
+
+export function parse_uri_list(raw_text) {
+    if (typeof raw_text !== 'string' || raw_text.length === 0) return [];
+    const out = [], seen = new Set();
+    for (const line of raw_text.replace(/\0/g, '').split(/\r?\n/)) {
+        const s = line.split('\t')[0].trim();
+        if (!s || s.startsWith('#') || !/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(s)) continue;
+        if (!seen.has(s)) {
+            seen.add(s);
+            out.push(s);
+            if (out.length >= 256) break;
+        }
+    }
+    return out;
+}
+
+export function compute_dropped_file_slots(count, start_col, start_row, workarea, cell_width, cell_height, start_corner = 'top-left', gap = 8, custom_slots = null) {
+    const n = Math.max(0, Math.min(256, Math.floor(Number(count) || 0)));
+    if (n === 0) return [];
+    const m = compute_grid_metrics(workarea, cell_width, cell_height, start_corner, gap);
+    const occupied = new Set();
+    if (custom_slots && typeof custom_slots === 'object') {
+        for (const s of Object.values(custom_slots)) {
+            if (s && typeof s.col === 'number' && typeof s.row === 'number') {
+                const p = slot_to_pixel(s.col, s.row, m);
+                occupied.add(`${p.col},${p.row}`);
+            }
+        }
+    }
+    const out = [], max_slots = m.max_cols * m.max_rows;
+    let cursor = Math.max(0, Math.min(m.max_cols - 1, Math.floor(start_col))) * m.max_rows + Math.max(0, Math.min(m.max_rows - 1, Math.floor(start_row)));
+    for (let step = 0; step < max_slots && out.length < n; step += 1) {
+        const idx = (cursor + step) % max_slots;
+        const pos = slot_to_pixel(Math.floor(idx / m.max_rows), idx % m.max_rows, m);
+        const key = `${pos.col},${pos.row}`;
+        if (!occupied.has(key)) { occupied.add(key); out.push({ col: pos.col, row: pos.row, x: pos.x, y: pos.y }); }
+    }
+    while (out.length < n) {
+        const i = out.length, pos = slot_to_pixel(start_col + Math.floor((start_row + i) / m.max_rows), (start_row + i) % m.max_rows, m);
+        out.push({ col: pos.col, row: pos.row, x: pos.x, y: pos.y });
+    }
+    return out;
+}
+

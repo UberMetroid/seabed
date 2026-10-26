@@ -8,6 +8,7 @@ import GioUnix from 'gi://GioUnix';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { build_label_inline_style, build_tile_inline_style, compute_cell_dimensions } from '../ui/tile_style.js';
 import { is_drop_target_entry } from './context_menu.js';
 
@@ -90,6 +91,7 @@ export class DesktopIconTile {
         this.callbacks = callbacks;
         this.selected = false;
         this.hovered = false;
+        this.drop_hovered = false;
         this._dragging = false;
         this.last_click_us = 0;
 
@@ -185,20 +187,20 @@ export class DesktopIconTile {
         const dims = compute_cell_dimensions(this.settings.icon_size());
         return new St.Icon({ gicon: this.entry.gicon, icon_size: dims.icon_px, opacity: 220 });
     }
-
     getDragActorSource() { return this.icon; }
-
     handleDragOver(source) {
-        if (!source || source === this || !source.entry || source.entry.is_special) return DND.DragMotionResult.CONTINUE;
-        return is_drop_target_entry(this.entry) ? DND.DragMotionResult.MOVE_DROP : DND.DragMotionResult.CONTINUE;
+        const ext = Boolean(Main.xdndHandler && source === Main.xdndHandler);
+        if (!ext && (!source || source === this || !source.entry || source.entry.is_special)) return DND.DragMotionResult.CONTINUE;
+        if (!is_drop_target_entry(this.entry)) return DND.DragMotionResult.CONTINUE;
+        this.callbacks?.on_tile_drag_over?.(this, ext);
+        return DND.DragMotionResult.MOVE_DROP;
     }
-
     acceptDrop(source) {
-        if (!source || source === this || !source.entry || source.entry.is_special) return false;
         if (!is_drop_target_entry(this.entry)) return false;
+        if (Main.xdndHandler && source === Main.xdndHandler) return true;
+        if (!source || source === this || !source.entry || source.entry.is_special) return false;
         return Boolean(this.callbacks?.on_drop_into_entry?.(source.entry, this.entry));
     }
-
     _activate_primary() {
         this.callbacks?.on_select?.(this);
         if (this.settings.single_click_open()) { launch_desktop_entry(this.entry); return; }
@@ -206,7 +208,6 @@ export class DesktopIconTile {
         if (now_us - this.last_click_us <= DOUBLE_CLICK_MS * 1000) { this.last_click_us = 0; launch_desktop_entry(this.entry); }
         else this.last_click_us = now_us;
     }
-
     update(entry, pos, selected) {
         if (!this.entry.gicon?.equal?.(entry.gicon)) this.icon.set_gicon(entry.gicon);
         this.entry = entry;
@@ -215,29 +216,23 @@ export class DesktopIconTile {
         if (pos) this.set_position(pos.x, pos.y);
         this.sync_style();
     }
-
-    set_selected(selected) {
-        const next = Boolean(selected);
-        if (this.selected !== next) { this.selected = next; this.sync_style(); }
-    }
-
-    set_position(x, y) {
-        if (!this._dragging && !this._draggable?._dragInProgress) this.actor.set_position(x, y);
-    }
-
+    set_selected(sel) { const next = Boolean(sel); if (this.selected !== next) { this.selected = next; this.sync_style(); } }
+    set_drop_hover(dh) { const next = Boolean(dh); if (this.drop_hovered !== next) { this.drop_hovered = next; this.sync_style(); } }
+    set_position(x, y) { if (!this._dragging && !this._draggable?._dragInProgress) this.actor.set_position(x, y); }
     sync_style() {
         const dims = compute_cell_dimensions(this.settings.icon_size());
         this.icon.set_icon_size(dims.icon_px);
         this.emblem.set_icon_size(Math.max(12, Math.round(dims.icon_px * 0.32)));
         this.emblem.visible = Boolean(this.entry.is_symlink && this.settings.show_link_emblem());
         this.actor.set_style(build_tile_inline_style({
-            width: dims.width, height: dims.height, selected: this.selected, hovered: this.hovered,
-            show_border: this.settings.show_selection_border(), border_width: this.settings.border_width(),
+            width: dims.width, height: dims.height,
+            selected: this.selected || this.drop_hovered, hovered: this.hovered || this.drop_hovered,
+            show_border: this.settings.show_selection_border() || this.drop_hovered,
+            border_width: this.drop_hovered ? Math.max(2, this.settings.border_width()) : this.settings.border_width(),
             border_radius: this.settings.border_radius(), border_color: this.settings.border_color_rgba(),
         }));
         this.label.set_style(build_label_inline_style(this.settings.dark_text_in_labels()));
     }
-
     destroy() {
         if (this.actor) {
             this.actor._delegate = null;
@@ -249,3 +244,4 @@ export class DesktopIconTile {
         }
     }
 }
+

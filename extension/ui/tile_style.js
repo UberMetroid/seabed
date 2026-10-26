@@ -66,3 +66,23 @@ export function build_tile_inline_style(opts) {
 
     return `width: ${w}px; height: ${h}px; border-radius: ${br}px; background-color: ${bg}; border: ${bdr}; padding: 6px 4px;`;
 }
+
+export function build_drop_preview_inline_style(opts) {
+    const {
+        width = 112,
+        height = 108,
+        border_width = 2,
+        border_radius = 12,
+        border_color = 'rgb(255,0,0)',
+    } = opts || {};
+
+    const w = Math.max(72, Math.min(200, Math.round(Number(width) || 112)));
+    const h = Math.max(72, Math.min(200, Math.round(Number(height) || 108)));
+    const bw = Math.max(2, Math.min(8, Math.round(Number(border_width) || 2)));
+    const br = Math.max(0, Math.min(24, Math.round(Number(border_radius) || 12)));
+    const rgba = parse_rgba(border_color);
+    const bg = `rgba(${rgba.red}, ${rgba.green}, ${rgba.blue}, 0.22)`;
+    const bdr = `${bw}px solid rgba(${rgba.red}, ${rgba.green}, ${rgba.blue}, ${Math.max(0.75, rgba.alpha)})`;
+    return `width: ${w}px; height: ${h}px; border-radius: ${br}px; background-color: ${bg}; border: ${bdr};`;
+}
+

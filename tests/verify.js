@@ -3,10 +3,10 @@
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import { compute_grid_positions, snap_pixel_to_slot, sort_desktop_entries } from '../extension/desktop/desktop_grid.js';
+import { compute_dropped_file_slots, compute_grid_positions, parse_uri_list, snap_pixel_to_slot, sort_desktop_entries } from '../extension/desktop/desktop_grid.js';
 import { NETWORK_SCHEMES, is_network_mount } from '../extension/desktop/file_scanner.js';
 import {
-    ICON_PIXEL_SIZES, build_label_inline_style, build_tile_inline_style, compute_cell_dimensions, resolve_icon_pixel_size,
+    ICON_PIXEL_SIZES, build_drop_preview_inline_style, build_label_inline_style, build_tile_inline_style, compute_cell_dimensions, resolve_icon_pixel_size,
 } from '../extension/ui/tile_style.js';
 import { format_rgba, is_dark_rgba, parse_rgba, text_color_for_css } from '../extension/ui/settings/color.js';
 import { ARRANGE_ORDERS, ExtensionSettings, ICON_SIZES, START_CORNERS } from '../extension/ui/settings/gsettings.js';
@@ -51,16 +51,13 @@ function verify_page_rules_and_lint(js_files, dirs) {
         assert(lines[0] === '// SPDX-License-Identifier: GPL-3.0-or-later', `Missing SPDX header in ${file}`);
         assert(lines[1].startsWith('// ') && lines[1].length >= 12, `Missing concise module description on line 2 of ${file}`);
         if (file.startsWith(EXT_ROOT)) {
-            for (const sym of legacy) {
-                assert(!content.includes(sym), `Forbidden legacy symbol '${sym}' in ${file}`);
-            }
+            for (const sym of legacy) assert(!content.includes(sym), `Forbidden legacy symbol '${sym}' in ${file}`);
         }
         for (let idx = 0; idx < lines.length; idx += 1) {
             const raw = lines[idx], ln = idx + 1, code = raw.split('//')[0];
             assert(raw.length <= 200, `Line ${ln} of ${file} exceeds 200 chars (${raw.length})`);
             if (!file.startsWith(EXT_ROOT)) continue;
-            assert(!code.trimStart().startsWith('var ') && !code.includes(' var ') && !code.includes('(var '),
-                `Forbidden var in ${file}:${ln}`);
+            assert(!code.trimStart().startsWith('var ') && !code.includes(' var ') && !code.includes('(var '), `Forbidden var in ${file}:${ln}`);
             for (let i = 0; i < code.length - 1; i += 1) {
                 const prev = i > 0 ? code[i - 1] : '';
                 const prev_eq = prev === '=' || prev === '!' || prev === '<' || prev === '>';
@@ -71,9 +68,7 @@ function verify_page_rules_and_lint(js_files, dirs) {
         }
     }
     for (const dir_path of dirs) {
-        const enumerator = Gio.File.new_for_path(dir_path).enumerate_children(
-            'standard::name', Gio.FileQueryInfoFlags.NONE, null,
-        );
+        const enumerator = Gio.File.new_for_path(dir_path).enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
         const visible = [];
         let info;
         while ((info = enumerator.next_file(null)) !== null) {
@@ -81,8 +76,7 @@ function verify_page_rules_and_lint(js_files, dirs) {
             if (!name.startsWith('.') && name !== 'dist' && name !== 'target') visible.push(name);
         }
         enumerator.close(null);
-        assert(visible.length <= 8,
-            `Directory density violation: ${dir_path} has ${visible.length} visible entries (max 8)`);
+        assert(visible.length <= 8, `Directory density violation: ${dir_path} has ${visible.length} visible entries (max 8)`);
         for (const name of visible) {
             const stem = (name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : name).toLowerCase();
             assert(!BANNED_STEMS.has(stem), `Banned generic name '${name}' in ${dir_path}`);
@@ -99,9 +93,7 @@ function verify_process_boundaries_and_invariants() {
     for (const rel of shared) {
         for (const raw of read_text(GLib.build_filenamev([EXT_ROOT, rel])).split('\n')) {
             const code = raw.split('//')[0];
-            for (const sym of compositor_only) {
-                assert(!code.includes(sym), `Process-boundary violation: ${rel} imports '${sym}'`);
-            }
+            for (const sym of compositor_only) assert(!code.includes(sym), `Process-boundary violation: ${rel} imports '${sym}'`);
         }
     }
     const check_files = [
@@ -118,12 +110,13 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.2.1',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.3.0',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'should-handle-sequence', 'may-recognize', 'Clutter.EventPhase',
         'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
         'thumbnail::path', 'Gio.FileIcon.new', '"session-modes"', 'refresh_file_manager_cache',
         'tile.update(entry, pos', 'Promise.all([', 'NETWORK_SCHEMES', '_dragInProgress',
+        'seabed-drop-preview', 'Main.xdndHandler', 'SELECTION_DND', 'read_external_dnd_uris', 'set_drop_hover',
     ];
     for (const req of reqs) assert(combined.includes(req), `Missing invariant: ${req}`);
     assert(!combined.includes('Rust installer') && !combined.includes('cargo install'), 'No Rust CLI reference');
@@ -135,10 +128,8 @@ async function verify_behavioral_and_gtk_suite() {
     const schema_xml = 'org.gnome.shell.extensions.seabed.gschema.xml';
     const dst_xml = Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, schema_xml]));
     try {
-        Gio.File.new_for_path(GLib.build_filenamev([EXT_ROOT, 'schemas', schema_xml]))
-            .copy(dst_xml, Gio.FileCopyFlags.OVERWRITE, null, null);
-        assert(Gio.Subprocess.new(['glib-compile-schemas', tmp_dir], Gio.SubprocessFlags.NONE).wait_check(null),
-            'glib-compile-schemas');
+        Gio.File.new_for_path(GLib.build_filenamev([EXT_ROOT, 'schemas', schema_xml])).copy(dst_xml, Gio.FileCopyFlags.OVERWRITE, null, null);
+        assert(Gio.Subprocess.new(['glib-compile-schemas', tmp_dir], Gio.SubprocessFlags.NONE).wait_check(null), 'glib-compile-schemas');
         const src = Gio.SettingsSchemaSource.new_from_directory(tmp_dir, Gio.SettingsSchemaSource.get_default(), false);
         const ext_settings = new Gio.Settings({
             settings_schema: src.lookup('org.gnome.shell.extensions.seabed', true),
@@ -204,6 +195,11 @@ async function verify_behavioral_and_gtk_suite() {
         s.prune_icon_positions(new Set());
         assert(Object.keys(s.icon_positions()).length === 0, 'prune empty desktop positions');
         assert(build_tile_inline_style({ selected: true, border_width: 2 }).includes('2px solid'), 'tile style');
+        assert(build_drop_preview_inline_style({ width: 108, height: 104, border_width: 2, border_radius: 12, border_color: '#2ec27e' }).includes('108px'), 'drop preview style');
+        const parsed_uris = parse_uri_list('# comment\r\nfile:///home/user/a.txt\r\nfile:///home/user/b.txt\t10:20:30:40\r\nfile:///home/user/a.txt\n');
+        assert(parsed_uris.length === 2 && parsed_uris[0] === 'file:///home/user/a.txt' && parsed_uris[1] === 'file:///home/user/b.txt', 'parse_uri_list');
+        const drop_slots = compute_dropped_file_slots(3, 2, 7, wa, 112, 108, 'top-left', 8, { existing: { col: 3, row: 0 } });
+        assert(drop_slots.length === 3 && drop_slots[0].col === 2 && drop_slots[0].row === 7 && drop_slots[1].col === 3 && drop_slots[1].row === 1, 'compute_dropped_file_slots wrap & occupancy');
         assert(build_label_inline_style(true).includes('#12161c') && build_label_inline_style(false).includes('#f6f8fa'), 'label');
 
         const Gtk = (await import('gi://Gtk?version=4.0')).default;
