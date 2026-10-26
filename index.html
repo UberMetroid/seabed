@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seabed — Wayland-Native Desktop Icons for GNOME 45–50</title>
+  <meta name="description" content="Zero-subprocess, Wayland-native desktop icons extension for GNOME Shell 45–50 rendering ~/Desktop, Home, Trash, and mounted drives natively inside the compositor background layer. Built to pair with Kelp, Reef, and Shoal.">
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --surface: #12161c;
+      --surface-alt: #181d25;
+      --border: #262e3b;
+      --accent: #f66151;
+      --seabed: #fba86c;
+      --shoal: #5bc8af;
+      --reef: #6ad7e1;
+      --kelp: #2ee59d;
+      --text: #eef2f6;
+      --muted: #9aa5b4;
+      --mono: ui-monospace, "JetBrains Mono", "Fira Code", SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Cantarell", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--seabed); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(11, 13, 16, 0.88);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--text);
+    }
+    .brand-badge {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--seabed);
+    }
+    .nav-links { display: flex; gap: 20px; font-size: 0.92rem; }
+    .nav-links a { color: var(--muted); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .hero { padding: 72px 0 56px; text-align: center; }
+    .eyebrow {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--seabed);
+      background: rgba(251, 168, 108, 0.1);
+      border: 1px solid rgba(251, 168, 108, 0.3);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      max-width: 820px;
+      margin: 0 auto 18px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.12rem;
+      max-width: 740px;
+      margin: 0 auto 32px;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 48px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: var(--muted); text-decoration: none; }
+    .btn-primary {
+      background: var(--seabed);
+      color: #160c04;
+      border-color: var(--seabed);
+    }
+    .desktop-frame {
+      background: #07090b;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      text-align: left;
+      position: relative;
+    }
+    .gnome-bar {
+      background: #13171e;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .tray-cluster {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      color: var(--seabed);
+    }
+    .tray-chip {
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+    }
+    section { padding: 56px 0; border-top: 1px solid var(--border); }
+    h2 { font-size: 1.8rem; margin-bottom: 12px; }
+    .section-lead { color: var(--muted); margin-bottom: 28px; }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px;
+    }
+    .card h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--seabed); }
+    .card p { color: var(--muted); font-size: 0.94rem; }
+    code {
+      font-family: var(--mono);
+      font-size: 0.86em;
+      background: var(--surface-alt);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: #d7e0ea;
+      margin-top: 12px;
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <div class="brand">
+        <span>🐚 Seabed</span>
+        <span class="brand-badge">v1.0.0 · GNOME 45–50</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="https://ubermetroid.github.io/kelp/">Kelp Tiler</a>
+        <a href="https://ubermetroid.github.io/reef/">Reef Dock</a>
+        <a href="https://ubermetroid.github.io/shoal/">Shoal Tray</a>
+        <a href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee</a>
+        <a href="https://github.com/UberMetroid/seabed">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero" style="border-top: none;">
+      <span class="eyebrow">seabed@ubermetroid.github.io · Wayland-First · Zero Subprocesses</span>
+      <h1>Wayland-Native Desktop Icons Built to Pair with Kelp, Reef &amp; Shoal</h1>
+      <p class="subtitle">
+        Seabed renders your <code>~/Desktop</code> files, folders, launchers, Personal Home, Trash (<code>trash:///</code>), and mounted drives directly inside <code>Main.layoutManager._backgroundGroup</code>—with zero fake <code>Meta.Window</code> hacks and zero GTK3 subprocesses.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/UberMetroid/seabed/releases/latest">⬇ Download Seabed v1.0.0 (.zip)</a>
+        <a class="btn" href="https://github.com/UberMetroid/seabed">⭐ Star on GitHub</a>
+        <a class="btn" href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee — Help send my daughter to college</a>
+      </div>
+
+      <div class="desktop-frame">
+        <div class="gnome-bar">
+          <span>Activities</span>
+          <span>GNOME 45–50 Wayland</span>
+          <div class="tray-cluster">
+            <span class="tray-chip">Home</span>
+            <span class="tray-chip">Trash</span>
+            <span class="tray-chip">~/Desktop</span>
+            <span class="tray-chip">External Drives</span>
+            <span style="color: var(--kelp);">Kelp + Reef + Shoal + Seabed</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <h2>Engineered for Kelp, Reef, Shoal &amp; Modern GNOME</h2>
+      <p class="section-lead">Derived from Desktop Icons NG (DING) and stripped of external GTK3 subprocesses and X11 window-title emulation hacks.</p>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Native Compositor Background Layer</h3>
+          <p>Attaches directly to <code>Main.layoutManager._backgroundGroup</code>—so Kelp never tries to tile a fake desktop window and Reef never dodges your desktop wallpaper.</p>
+        </div>
+        <div class="card">
+          <h3>Zero Subprocesses (shexli Clean)</h3>
+          <p>Monitors <code>~/Desktop</code>, <code>trash:///</code>, and <code>Gio.VolumeMonitor</code> mounts via pure asynchronous GIO APIs with <code>0 shexli findings</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Kelp &amp; Reef Accent Borders</h3>
+          <p>Selected and hovered desktop tiles display a crisp accent border ring with 1-click presets (<em>Gruvbox Amber</em>, <em>Kelp Emerald</em>, <em>Ocean Cyan</em>, <em>Coral Red</em>).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="install">
+      <h2>Quick Install</h2>
+      <p class="section-lead">Install from the latest GitHub Release bundle across Fedora, Debian, Ubuntu, Arch, openSUSE, and NixOS:</p>
+      <pre>gnome-extensions install --force seabed@ubermetroid.github.io.shell-extension.zip
+gnome-extensions enable seabed@ubermetroid.github.io</pre>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>
+        <strong>Seabed</strong> (<code>seabed@ubermetroid.github.io</code>) · Released under <a href="https://github.com/UberMetroid/seabed/blob/main/LICENSE">GPL-3.0-or-later</a> · Derived from Desktop Icons NG (Sergio Costas, Carlos Soriano, &amp; contributors).<br>
+        <a href="https://github.com/UberMetroid/seabed">⭐ Star on GitHub</a> · <a href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee — Help send my daughter to college</a> · <a href="https://ubermetroid.github.io/kelp/">Kelp Auto-Tiler</a> · <a href="https://ubermetroid.github.io/reef/">Reef Dock</a> · <a href="https://ubermetroid.github.io/shoal/">Shoal Tray</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
