@@ -4,23 +4,20 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import { compute_grid_positions, snap_pixel_to_slot, sort_desktop_entries } from '../extension/desktop/desktop_grid.js';
+import { NETWORK_SCHEMES, is_network_mount } from '../extension/desktop/file_scanner.js';
 import {
     ICON_PIXEL_SIZES, build_label_inline_style, build_tile_inline_style, compute_cell_dimensions, resolve_icon_pixel_size,
 } from '../extension/ui/tile_style.js';
 import { format_rgba, is_dark_rgba, parse_rgba, text_color_for_css } from '../extension/ui/settings/color.js';
 import { ARRANGE_ORDERS, ExtensionSettings, ICON_SIZES, START_CORNERS } from '../extension/ui/settings/gsettings.js';
-import { BORDER_PRESETS, build_about_page, build_appearance_page } from '../extension/ui/settings/prefs_pages.js';
+import { BORDER_PRESETS, bind_settings_keys, build_about_page, build_appearance_page } from '../extension/ui/settings/prefs_pages.js';
 
-const BANNED_STEMS = new Set([
-    'util', 'utils', 'lib', 'helper', 'helpers', 'common', 'misc', 'shared', 'base', 'core', 'types', 'mod',
-]);
+const BANNED_STEMS = new Set(['util', 'utils', 'lib', 'helper', 'helpers', 'common', 'misc', 'shared', 'base', 'core', 'types', 'mod']);
 const DECODER = new TextDecoder('utf-8');
 const REPO_ROOT = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_path();
 const EXT_ROOT = GLib.build_filenamev([REPO_ROOT, 'extension']);
 
-function assert(cond, msg) {
-    if (!cond) throw new Error(`Verification failed: ${msg}`);
-}
+function assert(cond, msg) { if (!cond) throw new Error(`Verification failed: ${msg}`); }
 
 function read_text(path) {
     const [ok, bytes] = GLib.file_get_contents(path);
@@ -46,18 +43,13 @@ function walk_repo(dir_path, js_files, dirs) {
 
 function verify_page_rules_and_lint(js_files, dirs) {
     assert(js_files.length === 12, `expected 12 .js files, found ${js_files.length}`);
-    const legacy = [
-        'imports.gi', 'imports.ui', 'imports.misc', 'ExtensionUtils',
-        'Meta.LaterType', 'Clutter.Container', 'add_actor', 'remove_actor',
-    ];
+    const legacy = ['imports.gi', 'imports.ui', 'imports.misc', 'ExtensionUtils', 'Meta.LaterType', 'Clutter.Container', 'add_actor', 'remove_actor'];
     for (const file of js_files) {
         const content = read_text(file);
         const lines = content.endsWith('\n') ? content.slice(0, -1).split('\n') : content.split('\n');
-        assert(lines.length >= 16 && lines.length <= 256,
-            `Page Rule violation: ${file} has ${lines.length} lines (16..=256)`);
+        assert(lines.length >= 16 && lines.length <= 256, `Page Rule violation: ${file} has ${lines.length} lines (16..=256)`);
         assert(lines[0] === '// SPDX-License-Identifier: GPL-3.0-or-later', `Missing SPDX header in ${file}`);
-        assert(lines[1].startsWith('// ') && lines[1].length >= 12,
-            `Missing concise module description on line 2 of ${file}`);
+        assert(lines[1].startsWith('// ') && lines[1].length >= 12, `Missing concise module description on line 2 of ${file}`);
         if (file.startsWith(EXT_ROOT)) {
             for (const sym of legacy) {
                 assert(!content.includes(sym), `Forbidden legacy symbol '${sym}' in ${file}`);
@@ -126,87 +118,93 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.1.1',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.2.0',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
         'thumbnail::path', 'Gio.FileIcon.new', '"session-modes"', 'refresh_file_manager_cache',
+        'tile.update(entry, pos', 'Promise.all([', 'NETWORK_SCHEMES', '_dragInProgress',
     ];
     for (const req of reqs) assert(combined.includes(req), `Missing invariant: ${req}`);
     assert(!combined.includes('Rust installer') && !combined.includes('cargo install'), 'No Rust CLI reference');
-    const prefs_pages = read_text(GLib.build_filenamev([EXT_ROOT, 'ui/settings/prefs_pages.js']));
-    assert(!/new Gtk\.Label\(\{[^}]*&amp;/s.test(prefs_pages), 'Gtk.Label must not contain raw &amp; without use_markup');
+    assert(!/new Gtk\.Label\(\{[^}]*&amp;/s.test(read_text(GLib.build_filenamev([EXT_ROOT, 'ui/settings/prefs_pages.js']))), 'No raw &amp;');
 }
 
 async function verify_behavioral_and_gtk_suite() {
     const tmp_dir = GLib.dir_make_tmp('seabed-verify-XXXXXX');
     const schema_xml = 'org.gnome.shell.extensions.seabed.gschema.xml';
     const dst_xml = Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, schema_xml]));
-    Gio.File.new_for_path(GLib.build_filenamev([EXT_ROOT, 'schemas', schema_xml]))
-        .copy(dst_xml, Gio.FileCopyFlags.OVERWRITE, null, null);
-    assert(Gio.Subprocess.new(['glib-compile-schemas', tmp_dir], Gio.SubprocessFlags.NONE).wait_check(null),
-        'glib-compile-schemas');
-    const src = Gio.SettingsSchemaSource.new_from_directory(tmp_dir, Gio.SettingsSchemaSource.get_default(), false);
-    const ext_settings = new Gio.Settings({
-        settings_schema: src.lookup('org.gnome.shell.extensions.seabed', true),
-        backend: Gio.memory_settings_backend_new(),
-    });
-    const s = new ExtensionSettings(ext_settings);
-
-    assert(s.icon_size() === 'standard' && s.start_corner() === 'top-left' && s.arrange_order() === 'NAME', 'defaults');
-    assert(s.show_home() && s.show_trash() && s.show_volumes() && !s.show_network_volumes(), 'special defaults');
-    assert(!s.show_hidden_files() && s.show_link_emblem() && !s.single_click_open() && !s.multi_monitor(), 'file flags');
-    assert(s.show_selection_border() && s.border_width() === 2 && s.border_radius() === 12, 'border defaults');
-    assert(ICON_SIZES.length === 4 && START_CORNERS.length === 4 && ARRANGE_ORDERS.length === 5, 'enums');
-    assert(BORDER_PRESETS.length === 4 && ICON_PIXEL_SIZES.standard === 48, 'presets & sizes');
-
-    s.set_icon_size('large');
-    assert(s.icon_size() === 'large' && resolve_icon_pixel_size(s.icon_size()) === 64, 'large icon size');
-    s.set_icon_size('invalid');
-    assert(s.icon_size() === 'standard' && compute_cell_dimensions('tiny').icon_px === 32, 'fallback icon size');
-    s.set_border_width(99);
-    assert(s.border_width() === 8, 'clamp max border width');
-    s.set_border_radius(99);
-    assert(s.border_radius() === 24, 'clamp max border radius');
-    s.set_border_color_rgba('#2ec27e');
-    assert(s.border_color_rgba() === 'rgba(46, 194, 126, 1)', 'hex color normalization');
-    assert(is_dark_rgba(parse_rgba('#111111')) && text_color_for_css('#ffffff') === '#000000', 'luminance');
-    assert(format_rgba(parse_rgba('rgb(255,0,0)')) === 'rgba(255, 0, 0, 1)', 'rgba format');
-    s.reset_defaults();
-    assert(s.icon_size() === 'standard' && s.border_width() === 2 && s.border_radius() === 12, 'reset defaults');
-
-    const sample = [
-        { id: 'f1', name: 'zebra.txt', kind: 'text/plain', size: 100, mtime: 20, is_special: false },
-        { id: 'tr', name: 'Trash', kind: 'trash', size: 0, mtime: 0, is_special: true },
-        { id: 'f2', name: 'alpha.pdf', kind: 'application/pdf', size: 900, mtime: 50, is_special: false },
-        { id: 'hm', name: 'Home', kind: 'home', size: 0, mtime: 0, is_special: true },
-    ];
-    const by_name = sort_desktop_entries(sample, 'NAME', false);
-    assert(by_name[0].id === 'hm' && by_name[1].id === 'tr' && by_name[2].id === 'f2', 'pinned special + NAME sort');
-    assert(sort_desktop_entries(sample, 'DESCENDINGNAME', false)[2].id === 'f1', 'DESCENDINGNAME sort');
-    assert(sort_desktop_entries(sample, 'MODIFIEDTIME', false)[2].id === 'f2', 'MODIFIEDTIME sort');
-    assert(sort_desktop_entries(sample, 'SIZE', false)[2].id === 'f2', 'SIZE sort');
-    assert(sort_desktop_entries(sample, 'KIND', true)[0].id === 'f2', 'KIND sort with mixed special folders');
-
-    const wa = { x: 0, y: 32, width: 1920, height: 1048 };
-    const tl = compute_grid_positions(3, wa, 112, 108, 'top-left', 8);
-    const tr = compute_grid_positions(3, wa, 112, 108, 'top-right', 8);
-    const bl = compute_grid_positions(3, wa, 112, 108, 'bottom-left', 8);
-    const br = compute_grid_positions(3, wa, 112, 108, 'bottom-right', 8);
-    assert(tl.length === 3 && tl[0].x === 16 && tl[0].y === 48 && tl[1].y > tl[0].y, 'top-left grid');
-    assert(tr[0].x > 1700 && bl[0].y > 900 && br[0].x > 1700 && br[0].y > 900, 'all 4 start corners');
-    s.set_icon_slot('f2', 3, 2);
-    s.set_icon_slot('stale', 5, 5);
-    s.prune_icon_positions(new Set(['f2', 'f1']));
-    const custom_pos = compute_grid_positions(by_name, wa, 112, 108, 'top-left', 8, s.icon_positions());
-    assert(custom_pos[2].col === 3 && custom_pos[2].row === 2 && !s.icon_positions().stale, 'custom slot & prune');
-    const snapped = snap_pixel_to_slot(custom_pos[2].x, custom_pos[2].y, wa, 112, 108, 'top-left', 8);
-    assert(snapped.col === 3 && snapped.row === 2, 'snap pixel to grid slot');
-    s.clear_icon_positions();
-    assert(Object.keys(s.icon_positions()).length === 0, 'clear icon positions');
-    assert(build_tile_inline_style({ selected: true, border_width: 2 }).includes('2px solid'), 'tile style');
-    assert(build_label_inline_style(true).includes('#12161c') && build_label_inline_style(false).includes('#f6f8fa'), 'label');
-
     try {
+        Gio.File.new_for_path(GLib.build_filenamev([EXT_ROOT, 'schemas', schema_xml]))
+            .copy(dst_xml, Gio.FileCopyFlags.OVERWRITE, null, null);
+        assert(Gio.Subprocess.new(['glib-compile-schemas', tmp_dir], Gio.SubprocessFlags.NONE).wait_check(null),
+            'glib-compile-schemas');
+        const src = Gio.SettingsSchemaSource.new_from_directory(tmp_dir, Gio.SettingsSchemaSource.get_default(), false);
+        const ext_settings = new Gio.Settings({
+            settings_schema: src.lookup('org.gnome.shell.extensions.seabed', true),
+            backend: Gio.memory_settings_backend_new(),
+        });
+        const s = new ExtensionSettings(ext_settings);
+
+        assert(s.icon_size() === 'standard' && s.start_corner() === 'top-left' && s.arrange_order() === 'NAME', 'defaults');
+        assert(s.show_home() && s.show_trash() && s.show_volumes() && !s.show_network_volumes(), 'special defaults');
+        assert(!s.show_hidden_files() && s.show_link_emblem() && !s.single_click_open() && !s.multi_monitor(), 'file flags');
+        assert(s.show_selection_border() && s.border_width() === 2 && s.border_radius() === 12, 'border defaults');
+        assert(ICON_SIZES.length === 4 && START_CORNERS.length === 4 && ARRANGE_ORDERS.length === 5, 'enums');
+        assert(BORDER_PRESETS.length === 4 && ICON_PIXEL_SIZES.standard === 48 && typeof bind_settings_keys === 'function', 'presets');
+        assert(NETWORK_SCHEMES.has('smb') && !NETWORK_SCHEMES.has('mtp') && !NETWORK_SCHEMES.has('gphoto2'), 'schemes');
+        assert(is_network_mount({ get_root: () => ({ get_uri_scheme: () => 'sftp' }) }), 'sftp network mount');
+        assert(!is_network_mount({ get_root: () => ({ get_uri_scheme: () => 'mtp' }) }), 'mtp removable mount');
+        assert(!is_network_mount({ get_root: () => ({ get_uri_scheme: () => 'file' }) }), 'local file mount');
+
+        s.set_icon_size('large');
+        assert(s.icon_size() === 'large' && resolve_icon_pixel_size(s.icon_size()) === 64, 'large icon size');
+        s.set_icon_size('invalid');
+        assert(s.icon_size() === 'standard' && compute_cell_dimensions('tiny').icon_px === 32, 'fallback icon size');
+        s.set_border_width(99);
+        assert(s.border_width() === 8, 'clamp max border width');
+        s.set_border_radius(99);
+        assert(s.border_radius() === 24, 'clamp max border radius');
+        s.set_border_color_rgba('#2ec27e');
+        assert(s.border_color_rgba() === 'rgba(46, 194, 126, 1)', 'hex color normalization');
+        assert(parse_rgba('#f008').red === 255 && parse_rgba('rgba(10, 20, 30, 50%)').alpha === 0.5, 'hex4 & pct alpha');
+        assert(parse_rgba('#zzzzzz').red === 255 && parse_rgba('#zzzzzz').green === 0, 'malformed hex fallback');
+        assert(is_dark_rgba(parse_rgba('#111111')) && text_color_for_css('#ffffff') === '#000000', 'luminance');
+        assert(format_rgba(parse_rgba('rgb(255,0,0)')) === 'rgba(255, 0, 0, 1)', 'rgba format');
+        s.reset_defaults();
+        assert(s.icon_size() === 'standard' && s.border_width() === 2 && s.border_radius() === 12, 'reset defaults');
+
+        const sample = [
+            { id: 'f1', name: 'zebra.txt', kind: 'text/plain', size: 100, mtime: 20, is_special: false },
+            { id: 'tr', name: 'Trash', kind: 'trash', size: 0, mtime: 0, is_special: true },
+            { id: 'f2', name: 'alpha.pdf', kind: 'application/pdf', size: 900, mtime: 50, is_special: false },
+            { id: 'hm', name: 'Home', kind: 'home', size: 0, mtime: 0, is_special: true },
+        ];
+        const by_name = sort_desktop_entries(sample, 'NAME', false);
+        assert(by_name[0].id === 'hm' && by_name[1].id === 'tr' && by_name[2].id === 'f2', 'pinned special + NAME sort');
+        assert(sort_desktop_entries(sample, 'DESCENDINGNAME', false)[2].id === 'f1', 'DESCENDINGNAME sort');
+        assert(sort_desktop_entries(sample, 'MODIFIEDTIME', false)[2].id === 'f2', 'MODIFIEDTIME sort');
+        assert(sort_desktop_entries(sample, 'SIZE', false)[2].id === 'f2', 'SIZE sort');
+        assert(sort_desktop_entries(sample, 'KIND', true)[0].id === 'f2', 'KIND sort with mixed special folders');
+
+        const wa = { x: 0, y: 32, width: 1920, height: 1048 };
+        const tl = compute_grid_positions(3, wa, 112, 108, 'top-left', 8);
+        const tr = compute_grid_positions(3, wa, 112, 108, 'top-right', 8);
+        const bl = compute_grid_positions(3, wa, 112, 108, 'bottom-left', 8);
+        const br = compute_grid_positions(3, wa, 112, 108, 'bottom-right', 8);
+        assert(tl.length === 3 && tl[0].x === 16 && tl[0].y === 48 && tl[1].y > tl[0].y, 'top-left grid');
+        assert(tr[0].x > 1700 && bl[0].y > 900 && br[0].x > 1700 && br[0].y > 900, 'all 4 start corners');
+        s.set_icon_slot('f2', 3, 2);
+        s.set_icon_slot('stale', 5, 5);
+        s.prune_icon_positions(new Set(['f2', 'f1']));
+        const custom_pos = compute_grid_positions(by_name, wa, 112, 108, 'top-left', 8, s.icon_positions());
+        assert(custom_pos[2].col === 3 && custom_pos[2].row === 2 && !s.icon_positions().stale, 'custom slot & prune');
+        const snapped = snap_pixel_to_slot(custom_pos[2].x, custom_pos[2].y, wa, 112, 108, 'top-left', 8);
+        assert(snapped.col === 3 && snapped.row === 2, 'snap pixel to grid slot');
+        s.prune_icon_positions(new Set());
+        assert(Object.keys(s.icon_positions()).length === 0, 'prune empty desktop positions');
+        assert(build_tile_inline_style({ selected: true, border_width: 2 }).includes('2px solid'), 'tile style');
+        assert(build_label_inline_style(true).includes('#12161c') && build_label_inline_style(false).includes('#f6f8fa'), 'label');
+
         const Gtk = (await import('gi://Gtk?version=4.0')).default;
         const Adw = (await import('gi://Adw?version=1')).default;
         if (Gtk.init_check()) {
@@ -216,15 +214,19 @@ async function verify_behavioral_and_gtk_suite() {
             const page_ab = build_about_page();
             assert(page_ap.get_title() === 'Appearance & Borders' && page_ab.get_title() === 'About & Support', 'GTK4 pages');
             let root_to_walk = [page_ap, page_ab];
-            const gres = '/usr/share/gnome-shell/org.gnome.Shell.Extensions.src.gresource';
-            if (Gio.File.new_for_path(gres).query_exists(null)) {
-                Gio.resources_register(Gio.Resource.load(gres));
-                const { default: SeabedPreferences } = await import('../extension/prefs.js');
-                const prefs = Object.create(SeabedPreferences.prototype);
-                prefs.getSettings = () => ext_settings;
-                const win = new Adw.PreferencesWindow();
-                prefs.fillPreferencesWindow(win);
-                root_to_walk = [win];
+            try {
+                const gres = '/usr/share/gnome-shell/org.gnome.Shell.Extensions.src.gresource';
+                if (Gio.File.new_for_path(gres).query_exists(null)) {
+                    Gio.resources_register(Gio.Resource.load(gres));
+                    const { default: SeabedPreferences } = await import('../extension/prefs.js');
+                    const prefs = Object.create(SeabedPreferences.prototype);
+                    prefs.getSettings = () => ext_settings;
+                    const win = new Adw.PreferencesWindow();
+                    prefs.fillPreferencesWindow(win);
+                    root_to_walk = [win];
+                }
+            } catch (e) {
+                if (String(e).includes('Verification failed')) throw e;
             }
             const walk_labels = (w) => {
                 if (!w) return;
@@ -238,13 +240,11 @@ async function verify_behavioral_and_gtk_suite() {
             for (const r of root_to_walk) walk_labels(r);
             for (const [obj, sig] of signals) obj.disconnect(sig);
         }
-    } catch (e) {
-        if (String(e).includes('Verification failed')) throw e;
+    } finally {
+        try { dst_xml.delete(null); } catch (_e) { /* ignore */ }
+        try { Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, 'gschemas.compiled'])).delete(null); } catch (_e) { /* ignore */ }
+        try { Gio.File.new_for_path(tmp_dir).delete(null); } catch (_e) { /* ignore */ }
     }
-
-    dst_xml.delete(null);
-    Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, 'gschemas.compiled'])).delete(null);
-    Gio.File.new_for_path(tmp_dir).delete(null);
 }
 
 const js_files = [], dirs = [];

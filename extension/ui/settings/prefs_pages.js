@@ -14,7 +14,7 @@ export const BORDER_PRESETS = Object.freeze([
     ['Coral Red', 'rgb(255,0,0)'],
 ]);
 
-function make_switch_row(title, subtitle, active, on_toggle) {
+export function make_switch_row(title, subtitle, active, on_toggle) {
     const row = new Adw.ActionRow({ title, subtitle });
     const sw = new Gtk.Switch({ active: Boolean(active), valign: Gtk.Align.CENTER });
     sw.connect('notify::active', () => on_toggle(sw.active));
@@ -23,7 +23,7 @@ function make_switch_row(title, subtitle, active, on_toggle) {
     return [row, sw];
 }
 
-function make_spin_row(title, subtitle, value, min, max, step, on_change) {
+export function make_spin_row(title, subtitle, value, min, max, step, on_change) {
     const row = new Adw.ActionRow({ title, subtitle });
     const spin = Gtk.SpinButton.new_with_range(min, max, step);
     spin.set_value(value);
@@ -33,14 +33,22 @@ function make_spin_row(title, subtitle, value, min, max, step, on_change) {
     return [row, spin];
 }
 
-function make_combo_row(title, subtitle, items, active_idx, on_change) {
+export function make_combo_row(title, subtitle, items, active_idx, on_change) {
     const row = new Adw.ActionRow({ title, subtitle });
     const combo = new Gtk.ComboBoxText({ valign: Gtk.Align.CENTER });
     for (const item of items) combo.append_text(item);
-    combo.set_active(Math.max(0, active_idx));
+    combo.set_active(active_idx >= 0 && active_idx < items.length ? active_idx : -1);
     combo.connect('changed', () => on_change(combo.get_active()));
     row.add_suffix(combo);
     return [row, combo];
+}
+
+export function bind_settings_keys(ext_settings, keys, sync_fn, signals) {
+    for (const k of keys) {
+        if (ext_settings.settings_schema?.has_key(k)) {
+            signals.push([ext_settings, ext_settings.connect(`changed::${k}`, sync_fn)]);
+        }
+    }
 }
 
 function add_link_row(group, title, subtitle, button_label, url, fallback_url = null) {
@@ -145,14 +153,11 @@ export function build_appearance_page(ext_settings, settings, signals) {
         const next_idx = match_preset(next_color);
         if (preset_combo.get_active() !== next_idx) preset_combo.set_active(next_idx);
     };
-    const keys = [
-        'dark-text-in-labels', 'show-selection-border', 'border-width', 'border-radius', 'border-color-rgba',
-    ];
-    for (const k of keys) {
-        if (ext_settings.settings_schema?.has_key(k)) {
-            signals.push([ext_settings, ext_settings.connect(`changed::${k}`, sync_appearance)]);
-        }
-    }
+    bind_settings_keys(
+        ext_settings,
+        ['dark-text-in-labels', 'show-selection-border', 'border-width', 'border-radius', 'border-color-rgba'],
+        sync_appearance, signals,
+    );
     return page;
 }
 
@@ -173,7 +178,7 @@ export function build_about_page() {
         subtitle: 'Zero-subprocess, zero-telemetry Wayland desktop icons extension for GNOME Shell',
     });
     ver_row.add_suffix(new Gtk.Label({
-        label: 'v1.1.1', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
+        label: 'v1.2.0', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
     }));
     header_group.add(ver_row);
 

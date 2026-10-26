@@ -7,7 +7,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import { MAX_TRASH_PROBES, resolve_desktop_dir_path } from './file_scanner.js';
+import { MAX_DESKTOP_ENTRIES, MAX_TRASH_PROBES, resolve_desktop_dir_path } from './file_scanner.js';
 import { launch_desktop_entry } from './icon_tile.js';
 
 const SORT_MENU_OPTIONS = Object.freeze([
@@ -46,26 +46,32 @@ export function empty_trash_async(on_done) {
         new GLib.Variant('(ba{sv})', [false, {}]),
         null, Gio.DBusCallFlags.NONE, 3000, null,
         (conn, res) => {
-            try {
-                conn.call_finish(res);
-                on_done?.();
-                return;
-            } catch (_e) { /* fallback to GIO trash enumeration */ }
+            try { conn.call_finish(res); on_done?.(); return; } catch (_e) { /* fallback to GIO trash enumeration */ }
             const trash = Gio.File.new_for_uri('trash:///');
             trash.enumerate_children_async(
                 'standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, null,
                 (src, eres) => {
-                    let enumerator;
+                    let enumerator, deleted = 0;
                     try { enumerator = src.enumerate_children_finish(eres); } catch (_e2) { on_done?.(); return; }
-                    enumerator.next_files_async(MAX_TRASH_PROBES, GLib.PRIORITY_DEFAULT, null, (esrc, nres) => {
-                        let infos = [];
-                        try { infos = esrc.next_files_finish(nres); } catch (_e3) { infos = []; }
-                        try { esrc.close(null); } catch (_e4) { /* ignore */ }
-                        for (const info of infos) {
-                            trash.get_child(info.get_name()).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
-                        }
-                        on_done?.();
-                    });
+                    const step = () => {
+                        enumerator.next_files_async(MAX_TRASH_PROBES, GLib.PRIORITY_DEFAULT, null, (esrc, nres) => {
+                            let infos = [];
+                            try { infos = esrc.next_files_finish(nres); } catch (_e3) { infos = []; }
+                            if (!infos || infos.length === 0 || deleted >= MAX_DESKTOP_ENTRIES) {
+                                try { esrc.close(null); } catch (_e4) { /* ignore */ }
+                                on_done?.();
+                                return;
+                            }
+                            let pending = infos.length;
+                            deleted += pending;
+                            for (const info of infos) {
+                                trash.get_child(info.get_name()).delete_async(GLib.PRIORITY_DEFAULT, null, () => {
+                                    if ((pending -= 1) === 0) step();
+                                });
+                            }
+                        });
+                    };
+                    step();
                 },
             );
         },
@@ -225,28 +231,16 @@ export class DesktopContextMenu {
 
     _add_item(label, callback) {
         const item = new PopupMenu.PopupMenuItem(label);
-        item.connect('activate', () => {
-            this.menu.close();
-            callback();
-        });
+        item.connect('activate', () => { this.menu.close(); callback(); });
         this.menu.addMenuItem(item);
         return item;
     }
 
-    close() {
-        if (this.menu) this.menu.close();
-    }
+    close() { if (this.menu) this.menu.close(); }
 
     destroy() {
-        if (this.menu) {
-            this.menu.close();
-            this.menu.destroy();
-            this.menu = null;
-        }
+        if (this.menu) { this.menu.close(); this.menu.destroy(); this.menu = null; }
         this.menu_manager = null;
-        if (this.anchor) {
-            this.anchor.destroy();
-            this.anchor = null;
-        }
+        if (this.anchor) { this.anchor.destroy(); this.anchor = null; }
     }
 }

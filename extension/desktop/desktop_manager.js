@@ -29,7 +29,6 @@ export class DesktopManager {
         this.settings = new ExtensionSettings(this.ext_settings);
         this.stylesheet_file = null;
         this.canvases = [];
-        this.tiles = [];
         this.entries = [];
         this.selected_id = null;
         this.dragged_entry = null;
@@ -43,7 +42,9 @@ export class DesktopManager {
         refresh_file_manager_cache(this.fm_cache);
         this.scanner = new DesktopFileScanner(this.settings, (entries) => {
             this.entries = entries;
-            if (entries.length > 0) this.settings.prune_icon_positions(new Set(entries.map((e) => e.id)));
+            const ids = new Set(entries.map((e) => e.id));
+            this.settings.prune_icon_positions(ids);
+            if (this.dragged_entry && !ids.has(this.dragged_entry.id)) this.dragged_entry = null;
             this._render_tiles();
         });
         this._bind_signals();
@@ -77,32 +78,32 @@ export class DesktopManager {
     load_theme() {
         try {
             const file = Gio.File.new_for_path(`${this.ext.path}/ui/stylesheet.css`);
-            if (file.query_exists(null)) {
-                St.ThemeContext.get_for_stage(global.stage).get_theme().load_stylesheet(file);
-                this.stylesheet_file = file;
-            }
+            if (!file.query_exists(null)) return;
+            St.ThemeContext.get_for_stage(global.stage).get_theme().load_stylesheet(file);
+            this.stylesheet_file = file;
         } catch (_e) { this.stylesheet_file = null; }
     }
     unload_theme() {
-        if (this.stylesheet_file !== null) {
-            try { St.ThemeContext.get_for_stage(global.stage).get_theme().unload_stylesheet(this.stylesheet_file); } catch (_e) { /* ignore */ }
-            this.stylesheet_file = null;
-        }
+        if (!this.stylesheet_file) return;
+        try { St.ThemeContext.get_for_stage(global.stage).get_theme().unload_stylesheet(this.stylesheet_file); } catch (_e) { /* ignore */ }
+        this.stylesheet_file = null;
     }
     _bind_signals() {
         const has = (k) => this.ext_settings.settings_schema?.has_key(k);
         for (const k of RESCAN_SETTING_KEYS) {
             if (has(k)) this.signals.push([this.ext_settings, this.ext_settings.connect(`changed::${k}`, () => this.scanner?.schedule_rescan(50))]);
         }
-        const relayout = () => { this._rebuild_canvases(); this._render_tiles(); };
         for (const k of RELAYOUT_SETTING_KEYS) {
-            if (has(k)) this.signals.push([this.ext_settings, this.ext_settings.connect(`changed::${k}`, relayout)]);
+            if (!has(k)) continue;
+            const cb = k === 'multi-monitor' ? () => { this._rebuild_canvases(); this._render_tiles(); } : () => this._render_tiles();
+            this.signals.push([this.ext_settings, this.ext_settings.connect(`changed::${k}`, cb)]);
         }
         if (has('icon-positions')) {
             this.signals.push([this.ext_settings, this.ext_settings.connect('changed::icon-positions', () => this._sync_tile_positions())]);
         }
+        const rebuild = () => { this._rebuild_canvases(); this._render_tiles(); };
         for (const [obj, sig] of [[Main.layoutManager, 'monitors-changed'], [global.display, 'workareas-changed']]) {
-            if (obj) this.signals.push([obj, obj.connect(sig, relayout)]);
+            if (obj) this.signals.push([obj, obj.connect(sig, rebuild)]);
         }
     }
     _get_target_monitors() {
@@ -117,13 +118,10 @@ export class DesktopManager {
         } catch (_e) { /* fallback */ }
         return { x: fallback.x, y: fallback.y, width: fallback.width, height: fallback.height };
     }
-    _clear_tiles() {
-        for (const tile of this.tiles) tile.destroy();
-        this.tiles.length = 0;
-    }
     _clear_canvases() {
-        this._clear_tiles();
         for (const c of this.canvases) {
+            for (const tile of c.tiles.values()) tile.destroy();
+            c.tiles.clear();
             c.actor._delegate = null;
             if (c.press_sig) c.actor.disconnect(c.press_sig);
             c.actor.destroy();
@@ -133,10 +131,7 @@ export class DesktopManager {
     _move_tile_to_canvas_point(source_tile, local_wa, tx, ty) {
         if (!source_tile?.entry?.id) return false;
         const dims = compute_cell_dimensions(this.settings.icon_size());
-        const snapped = snap_pixel_to_slot(
-            tx - dims.width / 2, ty - dims.height / 2,
-            local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap,
-        );
+        const snapped = snap_pixel_to_slot(tx - dims.width / 2, ty - dims.height / 2, local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap);
         this.settings.set_icon_slot(source_tile.entry.id, snapped.col, snapped.row);
         return true;
     }
@@ -158,18 +153,14 @@ export class DesktopManager {
             };
             let press_sig = 0;
             if (typeof Clutter.ClickGesture === 'function') {
-                const bg_click = new Clutter.ClickGesture({
-                    required_button: Clutter.BUTTON_SECONDARY, recognize_on_press: true,
-                });
+                const bg_click = new Clutter.ClickGesture({ required_button: Clutter.BUTTON_SECONDARY, recognize_on_press: true });
                 bg_click.connect('recognize', () => {
                     this._select_tile(null);
                     const coords = bg_click.get_coords_abs();
                     this.context_menu?.open_for_background(coords.x, coords.y);
                 });
                 actor.add_action(bg_click);
-                const left_click = new Clutter.ClickGesture({
-                    required_button: Clutter.BUTTON_PRIMARY, recognize_on_press: true,
-                });
+                const left_click = new Clutter.ClickGesture({ required_button: Clutter.BUTTON_PRIMARY, recognize_on_press: true });
                 left_click.connect('recognize', () => { this._select_tile(null); this.context_menu?.close(); });
                 actor.add_action(left_click);
             } else {
@@ -186,55 +177,60 @@ export class DesktopManager {
                 });
             }
             bg_group.add_child(actor);
-            this.canvases.push({ actor, press_sig, workarea: wa, local_wa });
+            this.canvases.push({ actor, press_sig, workarea: wa, local_wa, tiles: new Map() });
         }
     }
     _select_tile(target_tile) {
         this.selected_id = target_tile ? target_tile.entry.id : null;
-        for (const tile of this.tiles) tile.set_selected(tile.entry.id === this.selected_id);
+        for (const c of this.canvases) {
+            for (const tile of c.tiles.values()) tile.set_selected(tile.entry.id === this.selected_id);
+        }
     }
     _compute_sorted_and_coords(local_wa) {
-        const sorted = sort_desktop_entries(
-            this.entries, this.settings.arrange_order(), this.settings.sort_special_folders(),
-        );
+        const sorted = sort_desktop_entries(this.entries, this.settings.arrange_order(), this.settings.sort_special_folders());
         const dims = compute_cell_dimensions(this.settings.icon_size());
         const coords = compute_grid_positions(
-            sorted, local_wa, dims.width, dims.height,
-            this.settings.start_corner(), dims.gap, this.settings.icon_positions(),
+            sorted, local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap, this.settings.icon_positions(),
         );
         return [sorted, coords];
     }
     _sync_tile_positions() {
-        if (this.canvases.length === 0 || this.tiles.length === 0) return;
-        let offset = 0;
         for (const canvas of this.canvases) {
             const [sorted, coords] = this._compute_sorted_and_coords(canvas.local_wa);
             for (let i = 0; i < sorted.length; i += 1) {
-                const tile = this.tiles[offset + i], pos = coords[i];
+                const tile = canvas.tiles.get(sorted[i].id), pos = coords[i];
                 if (tile && pos) tile.set_position(pos.x, pos.y);
             }
-            offset += sorted.length;
         }
     }
     _render_tiles() {
-        this._clear_tiles();
         if (this.canvases.length === 0) return;
+        const cbs = {
+            on_select: (t) => this._select_tile(t),
+            on_drag_begin: (t) => { this.dragged_entry = t.entry; refresh_file_manager_cache(this.fm_cache); },
+            on_drag_end: () => { this.dragged_entry = null; this._sync_tile_positions(); },
+            on_context_menu: (t, sx, sy) => this.context_menu?.open_for_tile(t, sx, sy),
+            on_drop_into_entry: (s, d) => move_uri_to_target(s.uri, d.uri, () => this.scanner?.schedule_rescan(60)),
+        };
         for (const canvas of this.canvases) {
             const [sorted, coords] = this._compute_sorted_and_coords(canvas.local_wa);
+            const seen = new Set();
             for (let i = 0; i < sorted.length; i += 1) {
-                const entry = sorted[i], pos = coords[i] || { x: 16, y: 16 };
-                const tile = new DesktopIconTile(entry, this.settings, {
-                    on_select: (t) => this._select_tile(t),
-                    on_drag_begin: (t) => { this.dragged_entry = t.entry; refresh_file_manager_cache(this.fm_cache); },
-                    on_context_menu: (t, sx, sy) => this.context_menu?.open_for_tile(t, sx, sy),
-                    on_drop_into_entry: (src_entry, dst_entry) => move_uri_to_target(
-                        src_entry.uri, dst_entry.uri, () => this.scanner?.schedule_rescan(60),
-                    ),
-                });
-                tile.set_selected(entry.id === this.selected_id);
-                tile.set_position(pos.x, pos.y);
-                canvas.actor.add_child(tile.actor);
-                this.tiles.push(tile);
+                const entry = sorted[i], pos = coords[i] || { x: 16, y: 16 }, sel = entry.id === this.selected_id;
+                seen.add(entry.id);
+                let tile = canvas.tiles.get(entry.id);
+                if (tile) {
+                    tile.update(entry, pos, sel);
+                } else {
+                    tile = new DesktopIconTile(entry, this.settings, cbs);
+                    tile.set_selected(sel);
+                    tile.set_position(pos.x, pos.y);
+                    canvas.actor.add_child(tile.actor);
+                    canvas.tiles.set(entry.id, tile);
+                }
+            }
+            for (const [id, tile] of canvas.tiles.entries()) {
+                if (!seen.has(id)) { tile.destroy(); canvas.tiles.delete(id); }
             }
         }
     }
@@ -249,6 +245,9 @@ export class DesktopManager {
         if (this.context_menu) { this.context_menu.destroy(); this.context_menu = null; }
         this._clear_canvases();
         this.unload_theme();
+        this.entries.length = 0;
+        this.selected_id = null;
+        this.dragged_entry = null;
         this.ext_settings = null;
         this.settings = null;
     }

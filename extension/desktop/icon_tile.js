@@ -63,11 +63,13 @@ export function find_open_file_manager_target_at(sx, sy, cache) {
 
 export function launch_desktop_entry(entry) {
     if (!entry) return;
-    if (entry.is_desktop_launcher && entry.path) {
+    if (entry.is_desktop_launcher) {
+        if (!entry.path) return;
         try {
             const app = GioUnix.DesktopAppInfo.new_from_filename(entry.path);
-            if (app && app.launch([], null)) return;
-        } catch (_e) { /* fallback to default URI launch */ }
+            if (app) app.launch([], null);
+        } catch (_e) { /* refuse to open untrusted/broken .desktop launcher as text document */ }
+        return;
     }
     if (entry.uri) {
         try {
@@ -97,7 +99,7 @@ export class DesktopIconTile {
             style_class: 'seabed-icon-box', vertical: true,
             x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.START,
         });
-        const icon_stack = new St.Widget({
+        this.icon_stack = new St.Widget({
             layout_manager: new Clutter.BinLayout(), x_align: Clutter.ActorAlign.CENTER,
         });
         const dims = compute_cell_dimensions(this.settings.icon_size());
@@ -105,17 +107,15 @@ export class DesktopIconTile {
             gicon: entry.gicon, icon_size: dims.icon_px,
             x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
         });
-        icon_stack.add_child(this.icon);
-
-        if (entry.is_symlink && this.settings.show_link_emblem()) {
-            icon_stack.add_child(new St.Icon({
-                icon_name: 'emblem-symbolic-link',
-                icon_size: Math.max(12, Math.round(dims.icon_px * 0.32)),
-                style_class: 'seabed-emblem-badge',
-                x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END,
-            }));
-        }
-        vbox.add_child(icon_stack);
+        this.icon_stack.add_child(this.icon);
+        this.emblem = new St.Icon({
+            icon_name: 'emblem-symbolic-link',
+            icon_size: Math.max(12, Math.round(dims.icon_px * 0.32)),
+            style_class: 'seabed-emblem-badge',
+            x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END,
+        });
+        this.icon_stack.add_child(this.emblem);
+        vbox.add_child(this.icon_stack);
 
         this.label = new St.Label({
             text: entry.name, style_class: 'seabed-icon-label', x_align: Clutter.ActorAlign.CENTER,
@@ -163,6 +163,7 @@ export class DesktopIconTile {
                 this.callbacks?.on_select?.(this);
                 this.callbacks?.on_drag_begin?.(this);
             });
+            this._draggable.connect('drag-end', () => this.callbacks?.on_drag_end?.(this));
         }
         this.sync_style();
     }
@@ -200,6 +201,15 @@ export class DesktopIconTile {
         }
     }
 
+    update(entry, pos, selected) {
+        if (!this.entry.gicon?.equal?.(entry.gicon)) this.icon.set_gicon(entry.gicon);
+        this.entry = entry;
+        this.selected = Boolean(selected);
+        if (this.label.text !== entry.name) this.label.text = entry.name;
+        if (pos) this.set_position(pos.x, pos.y);
+        this.sync_style();
+    }
+
     set_selected(selected) {
         const next = Boolean(selected);
         if (this.selected !== next) {
@@ -209,12 +219,14 @@ export class DesktopIconTile {
     }
 
     set_position(x, y) {
-        this.actor.set_position(x, y);
+        if (!this._draggable?._dragInProgress) this.actor.set_position(x, y);
     }
 
     sync_style() {
         const dims = compute_cell_dimensions(this.settings.icon_size());
         this.icon.set_icon_size(dims.icon_px);
+        this.emblem.set_icon_size(Math.max(12, Math.round(dims.icon_px * 0.32)));
+        this.emblem.visible = Boolean(this.entry.is_symlink && this.settings.show_link_emblem());
         this.actor.set_style(build_tile_inline_style({
             width: dims.width,
             height: dims.height,

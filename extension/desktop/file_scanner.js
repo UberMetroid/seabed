@@ -21,14 +21,15 @@ export function resolve_desktop_dir_path() {
     return GLib.build_filenamev([GLib.get_home_dir(), 'Desktop']);
 }
 
-function is_network_mount(mount) {
+export const NETWORK_SCHEMES = Object.freeze(new Set([
+    'smb', 'cifs', 'sftp', 'ssh', 'ftp', 'ftps', 'nfs', 'dav', 'davs', 'afp',
+]));
+
+export function is_network_mount(mount) {
     try {
-        const root = mount.get_root();
-        const scheme = root ? (root.get_uri_scheme() || '').toLowerCase() : '';
-        return scheme !== 'file' && scheme !== '';
-    } catch (_e) {
-        return false;
-    }
+        const root = mount?.get_root?.();
+        return NETWORK_SCHEMES.has((root?.get_uri_scheme?.() || '').toLowerCase());
+    } catch (_e) { return false; }
 }
 
 export class DesktopFileScanner {
@@ -68,7 +69,7 @@ export class DesktopFileScanner {
 
     schedule_rescan(delay_ms = 120) {
         if (this.debounce_id !== 0) {
-            GLib.Source.remove(this.debounce_id);
+            try { GLib.Source.remove(this.debounce_id); } catch (_e) { /* ignore */ }
             this.debounce_id = 0;
         }
         this.debounce_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay_ms, () => {
@@ -80,10 +81,7 @@ export class DesktopFileScanner {
     }
 
     scan_now() {
-        if (this.cancellable !== null) {
-            this.cancellable.cancel();
-            this.cancellable = null;
-        }
+        if (this.cancellable !== null) { this.cancellable.cancel(); this.cancellable = null; }
         const cancel = new Gio.Cancellable();
         this.cancellable = cancel;
         this._run_scan(cancel).catch(() => { /* ignore cancelled */ });
@@ -101,9 +99,14 @@ export class DesktopFileScanner {
             });
         }
 
-        if (this.settings.show_trash()) {
-            const has_trash = await this._probe_trash_non_empty(cancel);
-            if (cancel.is_cancelled()) return;
+        const want_trash = this.settings.show_trash();
+        const [has_trash, desk_entries] = await Promise.all([
+            want_trash ? this._probe_trash_non_empty(cancel) : Promise.resolve(false),
+            this._enumerate_desktop_dir(cancel),
+        ]);
+        if (cancel.is_cancelled()) return;
+
+        if (want_trash) {
             entries.push({
                 id: 'special:trash', name: 'Trash', uri: 'trash:///', path: null,
                 gicon: Gio.ThemedIcon.new(has_trash ? 'user-trash-full' : 'user-trash'),
@@ -132,8 +135,6 @@ export class DesktopFileScanner {
             }
         }
 
-        const desk_entries = await this._enumerate_desktop_dir(cancel);
-        if (cancel.is_cancelled()) return;
         for (const item of desk_entries) entries.push(item);
         if (this.cancellable === cancel) this.cancellable = null;
         this.on_entries_changed(entries);
@@ -172,7 +173,7 @@ export class DesktopFileScanner {
                         enumerator.next_files_async(32, GLib.PRIORITY_DEFAULT, cancel, (esrc, eres) => {
                             let infos = [];
                             try { infos = esrc.next_files_finish(eres); } catch (_e2) { infos = []; }
-                            if (!infos || infos.length === 0 || out.length >= MAX_DESKTOP_ENTRIES) {
+                            if (cancel.is_cancelled() || !infos || infos.length === 0 || out.length >= MAX_DESKTOP_ENTRIES) {
                                 try { esrc.close(null); } catch (_e3) { /* ignore */ }
                                 resolve(out);
                                 return;
@@ -227,7 +228,10 @@ export class DesktopFileScanner {
     }
 
     destroy() {
-        if (this.debounce_id !== 0) { GLib.Source.remove(this.debounce_id); this.debounce_id = 0; }
+        if (this.debounce_id !== 0) {
+            try { GLib.Source.remove(this.debounce_id); } catch (_e) { /* ignore */ }
+            this.debounce_id = 0;
+        }
         if (this.cancellable !== null) { this.cancellable.cancel(); this.cancellable = null; }
         if (this.desktop_monitor !== null) {
             if (this.desktop_sig !== 0) this.desktop_monitor.disconnect(this.desktop_sig);

@@ -19,34 +19,38 @@ export function parse_rgba(input) {
     if (typeof input !== 'string') return { ...DEFAULT_RGBA };
     const s = input.trim();
 
-    if (s.startsWith('#')) {
+    if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s)) {
         const hex = s.slice(1);
-        if (hex.length === 3) {
+        if (hex.length <= 4) {
+            const alpha = hex.length === 4 ? parseInt(hex[3] + hex[3], 16) / 255 : 1.0;
             return {
                 red: clamp_byte(parseInt(hex[0] + hex[0], 16)),
                 green: clamp_byte(parseInt(hex[1] + hex[1], 16)),
                 blue: clamp_byte(parseInt(hex[2] + hex[2], 16)),
-                alpha: 1.0,
-            };
-        }
-        if (hex.length === 6 || hex.length === 8) {
-            const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1.0;
-            return {
-                red: clamp_byte(parseInt(hex.slice(0, 2), 16)),
-                green: clamp_byte(parseInt(hex.slice(2, 4), 16)),
-                blue: clamp_byte(parseInt(hex.slice(4, 6), 16)),
                 alpha: clamp_alpha(alpha),
             };
         }
+        const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1.0;
+        return {
+            red: clamp_byte(parseInt(hex.slice(0, 2), 16)),
+            green: clamp_byte(parseInt(hex.slice(2, 4), 16)),
+            blue: clamp_byte(parseInt(hex.slice(4, 6), 16)),
+            alpha: clamp_alpha(alpha),
+        };
     }
 
-    const match = s.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    const match = s.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+%?))?\s*\)$/i);
     if (match) {
+        let alpha = 1.0;
+        if (match[4] !== undefined) {
+            const raw_a = match[4];
+            alpha = raw_a.endsWith('%') ? parseFloat(raw_a) / 100 : parseFloat(raw_a);
+        }
         return {
             red: clamp_byte(parseFloat(match[1])),
             green: clamp_byte(parseFloat(match[2])),
             blue: clamp_byte(parseFloat(match[3])),
-            alpha: match[4] !== undefined ? clamp_alpha(parseFloat(match[4])) : 1.0,
+            alpha: clamp_alpha(alpha),
         };
     }
 
@@ -54,22 +58,24 @@ export function parse_rgba(input) {
 }
 
 export function format_rgba(rgba) {
-    const r = clamp_byte(rgba.red);
-    const g = clamp_byte(rgba.green);
-    const b = clamp_byte(rgba.blue);
-    const a = clamp_alpha(rgba.alpha);
+    const src = rgba && typeof rgba === 'object' ? rgba : DEFAULT_RGBA;
+    const r = clamp_byte(src.red);
+    const g = clamp_byte(src.green);
+    const b = clamp_byte(src.blue);
+    const a = clamp_alpha(src.alpha);
     return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 export function is_dark_rgba(rgba) {
+    const src = rgba && typeof rgba === 'object' ? rgba : DEFAULT_RGBA;
     const to_linear = (channel) => {
         const c = clamp_byte(channel) / 255;
         return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     };
     const luminance =
-        0.2126 * to_linear(rgba.red) +
-        0.7152 * to_linear(rgba.green) +
-        0.0722 * to_linear(rgba.blue);
+        0.2126 * to_linear(src.red) +
+        0.7152 * to_linear(src.green) +
+        0.0722 * to_linear(src.blue);
     return luminance <= 0.179;
 }
 
