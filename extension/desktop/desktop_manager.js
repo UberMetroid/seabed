@@ -65,8 +65,8 @@ export class DesktopManager {
                 this.dragged_entry = null;
                 this.dragged_tile = null;
                 if (!move_uri_to_target(entry.uri, fm_uri, () => this.scanner?.schedule_rescan(60))) return DND.DragDropResult.CONTINUE;
-                if (actor && actor.get_parent?.() === Main.uiGroup) actor.destroy();
                 tile?.finish_external_drop(ev.clutterEvent.get_time?.() ?? 0);
+                if (actor && actor.get_parent?.() === Main.uiGroup) actor.destroy();
                 return DND.DragDropResult.SUCCESS;
             },
         };
@@ -149,22 +149,28 @@ export class DesktopManager {
             };
             let press_sig = 0;
             if (typeof Clutter.ClickGesture === 'function') {
+                const is_bg_ev = (ev) => (global.stage?.get_event_actor?.(ev) || ev?.get_source?.()) === actor;
                 const is_bg = (g) => {
                     const { x, y } = g.get_coords_abs();
                     return global.stage?.get_actor_at_pos?.(Clutter.PickMode.REACTIVE, x, y) === actor;
                 };
+                const add_bg_action = (name, g) => {
+                    g.connect('should-handle-sequence', (_g, ev) => is_bg_ev(ev));
+                    g.connect('may-recognize', () => is_bg(g));
+                    if (typeof actor.add_action_full === 'function' && Clutter.EventPhase?.TARGET !== undefined) {
+                        actor.add_action_full(name, Clutter.EventPhase.TARGET, g);
+                    } else actor.add_action(g);
+                };
                 const bg_click = new Clutter.ClickGesture({ required_button: Clutter.BUTTON_SECONDARY, recognize_on_press: true });
-                bg_click.connect('may-recognize', () => is_bg(bg_click));
                 bg_click.connect('recognize', () => {
                     this._select_tile(null);
                     const { x, y } = bg_click.get_coords_abs();
                     this.context_menu?.open_for_background(x, y);
                 });
                 const left_click = new Clutter.ClickGesture({ required_button: Clutter.BUTTON_PRIMARY, recognize_on_press: true });
-                left_click.connect('may-recognize', () => is_bg(left_click));
                 left_click.connect('recognize', () => { this._select_tile(null); this.context_menu?.close(); });
-                actor.add_action(bg_click);
-                actor.add_action(left_click);
+                add_bg_action('seabed-bg-context', bg_click);
+                add_bg_action('seabed-bg-select', left_click);
             } else {
                 press_sig = actor.connect('button-press-event', (_actor, event) => {
                     if (event.get_source() !== actor) return Clutter.EVENT_PROPAGATE;
@@ -244,10 +250,6 @@ export class DesktopManager {
         this._clear_canvases();
         this.unload_theme();
         this.entries.length = 0;
-        this.selected_id = null;
-        this.dragged_entry = null;
-        this.dragged_tile = null;
-        this.ext_settings = null;
-        this.settings = null;
+        this.selected_id = this.dragged_entry = this.dragged_tile = this.ext_settings = this.settings = null;
     }
 }
