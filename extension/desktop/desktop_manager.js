@@ -80,18 +80,20 @@ export class DesktopManager {
     _prefetch_ext_dnd() {
         if (this.ext_dnd_uris || this.ext_dnd_reading) return;
         this.ext_dnd_reading = true;
-        read_external_dnd_uris(this.ext_dnd_source, (uris) => { if (uris.length > 0) this.ext_dnd_uris = uris; });
+        read_external_dnd_uris(this.ext_dnd_source, (uris) => { this.ext_dnd_reading = false; if (uris.length > 0) this.ext_dnd_uris = uris; });
     }
     _complete_external_drop() {
         const target = this.ext_hover_target, src = this.ext_dnd_source, cached = this.ext_dnd_uris;
         this.ext_hover_target = this.ext_dnd_uris = this.ext_dnd_reading = null; this._clear_drop_previews();
         if (!target) return;
         const apply_uris = (uris) => {
+            if (!Array.isArray(uris) || uris.length === 0) return;
             if (target.kind === 'tile') { move_uris_to_target(uris, target.uri, () => this.scanner?.schedule_rescan(60)); return; }
             const desk_dir = Gio.File.new_for_path(resolve_desktop_dir_path()), moved = move_uris_to_target(uris, desk_dir.get_uri(), () => this.scanner?.schedule_rescan(60));
             if (moved.length === 0) return;
             const dims = compute_cell_dimensions(this.settings.icon_size()), map = this.settings.icon_positions();
-            const slots = compute_dropped_file_slots(moved.length, target.col, target.row, target.local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap, map);
+            const sorted = sort_desktop_entries(this.entries, this.settings.arrange_order(), this.settings.sort_special_folders());
+            const slots = compute_dropped_file_slots(moved.length, target.col, target.row, target.local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap, map, sorted);
             for (let i = 0; i < moved.length; i += 1) {
                 const base = Gio.File.new_for_uri(moved[i]).get_basename(), s = slots[i];
                 if (base && s) map[`file:${desk_dir.get_child(base).get_uri()}`] = { col: s.col, row: s.row };

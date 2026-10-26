@@ -200,6 +200,8 @@ async function verify_behavioral_and_gtk_suite() {
         assert(parsed_uris.length === 2 && parsed_uris[0] === 'file:///home/user/a.txt' && parsed_uris[1] === 'file:///home/user/b.txt', 'parse_uri_list');
         const drop_slots = compute_dropped_file_slots(3, 2, 7, wa, 112, 108, 'top-left', 8, { existing: { col: 3, row: 0 } });
         assert(drop_slots.length === 3 && drop_slots[0].col === 2 && drop_slots[0].row === 7 && drop_slots[1].col === 3 && drop_slots[1].row === 1, 'compute_dropped_file_slots wrap & occupancy');
+        const auto_slots = compute_dropped_file_slots(2, 0, 0, wa, 112, 108, 'top-left', 8, {}, by_name);
+        assert(auto_slots.length === 2 && auto_slots[0].col === 0 && auto_slots[0].row === 4 && auto_slots[1].row === 5, 'auto occupancy');
         assert(build_label_inline_style(true).includes('#12161c') && build_label_inline_style(false).includes('#f6f8fa'), 'label');
 
         const Gtk = (await import('gi://Gtk?version=4.0')).default;

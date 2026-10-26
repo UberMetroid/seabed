@@ -138,19 +138,19 @@ export function move_uri_to_target(source_uri, target_uri, on_done) {
 export function read_external_dnd_uris(src_snapshot, on_uris) {
     const finish_bytes = (bytes) => {
         const uris = bytes ? parse_uri_list(DND_DECODER.decode(bytes.toArray())) : [];
-        if (uris.length > 0) on_uris(uris);
+        on_uris(uris);
     };
     const try_transfer = () => {
         try {
             const sel = global.display?.get_selection?.(), dnd_t = Meta.SelectionType.SELECTION_DND;
-            if (!sel || typeof sel.transfer_async !== 'function') return;
+            if (!sel || typeof sel.transfer_async !== 'function') { on_uris([]); return; }
             const mimes = sel.get_mimetypes?.(dnd_t) || [], mime = DND_MIME_TYPES.find((m) => mimes.includes(m));
-            if (!mime) return;
+            if (!mime) { on_uris([]); return; }
             const out = Gio.MemoryOutputStream.new_resizable();
             sel.transfer_async(dnd_t, mime, -1, out, null, (s, res) => {
-                try { s.transfer_finish(res); out.close(null); finish_bytes(out.steal_as_bytes()); } catch (_e) { /* ignore */ }
+                try { s.transfer_finish(res); out.close(null); finish_bytes(out.steal_as_bytes()); } catch (_e) { on_uris([]); }
             });
-        } catch (_e2) { /* ignore */ }
+        } catch (_e2) { on_uris([]); }
     };
     try {
         if (src_snapshot && typeof src_snapshot.read_async === 'function') {

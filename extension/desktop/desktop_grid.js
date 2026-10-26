@@ -171,25 +171,22 @@ export function parse_uri_list(raw_text) {
     return out;
 }
 
-export function compute_dropped_file_slots(count, start_col, start_row, workarea, cell_width, cell_height, start_corner = 'top-left', gap = 8, custom_slots = null) {
+export function compute_dropped_file_slots(count, start_col, start_row, workarea, cell_width, cell_height, start_corner = 'top-left', gap = 8, custom_slots = null, entries = null) {
     const n = Math.max(0, Math.min(256, Math.floor(Number(count) || 0)));
     if (n === 0) return [];
     const m = compute_grid_metrics(workarea, cell_width, cell_height, start_corner, gap);
     const occupied = new Set();
-    if (custom_slots && typeof custom_slots === 'object') {
+    if (Array.isArray(entries) && entries.length > 0) {
+        for (const p of compute_grid_positions(entries, workarea, cell_width, cell_height, start_corner, gap, custom_slots)) occupied.add(`${p.col},${p.row}`);
+    } else if (custom_slots && typeof custom_slots === 'object') {
         for (const s of Object.values(custom_slots)) {
-            if (s && typeof s.col === 'number' && typeof s.row === 'number') {
-                const p = slot_to_pixel(s.col, s.row, m);
-                occupied.add(`${p.col},${p.row}`);
-            }
+            if (s && typeof s.col === 'number' && typeof s.row === 'number') { const p = slot_to_pixel(s.col, s.row, m); occupied.add(`${p.col},${p.row}`); }
         }
     }
     const out = [], max_slots = m.max_cols * m.max_rows;
-    let cursor = Math.max(0, Math.min(m.max_cols - 1, Math.floor(start_col))) * m.max_rows + Math.max(0, Math.min(m.max_rows - 1, Math.floor(start_row)));
+    const cursor = Math.max(0, Math.min(m.max_cols - 1, Math.floor(start_col))) * m.max_rows + Math.max(0, Math.min(m.max_rows - 1, Math.floor(start_row)));
     for (let step = 0; step < max_slots && out.length < n; step += 1) {
-        const idx = (cursor + step) % max_slots;
-        const pos = slot_to_pixel(Math.floor(idx / m.max_rows), idx % m.max_rows, m);
-        const key = `${pos.col},${pos.row}`;
+        const idx = (cursor + step) % max_slots, pos = slot_to_pixel(Math.floor(idx / m.max_rows), idx % m.max_rows, m), key = `${pos.col},${pos.row}`;
         if (!occupied.has(key)) { occupied.add(key); out.push({ col: pos.col, row: pos.row, x: pos.x, y: pos.y }); }
     }
     while (out.length < n) {
