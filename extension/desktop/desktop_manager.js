@@ -13,13 +13,10 @@ import { compute_grid_positions, snap_pixel_to_slot, sort_desktop_entries } from
 import { DesktopFileScanner } from './file_scanner.js';
 import { DesktopIconTile, find_open_file_manager_target_at, refresh_file_manager_cache } from './icon_tile.js';
 
-const RESCAN_SETTING_KEYS = Object.freeze([
-    'show-home', 'show-trash', 'show-volumes', 'show-network-volumes', 'show-hidden-files',
-]);
+const RESCAN_SETTING_KEYS = Object.freeze(['show-home', 'show-trash', 'show-volumes', 'show-network-volumes', 'show-hidden-files']);
 const RELAYOUT_SETTING_KEYS = Object.freeze([
-    'icon-size', 'start-corner', 'arrange-order', 'sort-special-folders',
-    'show-link-emblem', 'dark-text-in-labels', 'multi-monitor',
-    'show-selection-border', 'border-width', 'border-radius', 'border-color-rgba',
+    'icon-size', 'start-corner', 'arrange-order', 'sort-special-folders', 'show-link-emblem',
+    'dark-text-in-labels', 'multi-monitor', 'show-selection-border', 'border-width', 'border-radius', 'border-color-rgba',
 ]);
 
 export class DesktopManager {
@@ -32,6 +29,7 @@ export class DesktopManager {
         this.entries = [];
         this.selected_id = null;
         this.dragged_entry = null;
+        this.dragged_tile = null;
         this.fm_cache = { win_map: {}, locs: [] };
         this.signals = [];
         this.drag_monitor = null;
@@ -44,7 +42,7 @@ export class DesktopManager {
             this.entries = entries;
             const ids = new Set(entries.map((e) => e.id));
             this.settings.prune_icon_positions(ids);
-            if (this.dragged_entry && !ids.has(this.dragged_entry.id)) this.dragged_entry = null;
+            if (this.dragged_entry && !ids.has(this.dragged_entry.id)) { this.dragged_entry = null; this.dragged_tile = null; }
             this._render_tiles();
         });
         this._bind_signals();
@@ -56,20 +54,19 @@ export class DesktopManager {
             dragMotion: (ev) => {
                 const src = ev?.source;
                 if (!src || !src.entry || src.entry.is_special) return DND.DragMotionResult.CONTINUE;
-                return find_open_file_manager_target_at(ev.x, ev.y, this.fm_cache)
-                    ? DND.DragMotionResult.MOVE_DROP : DND.DragMotionResult.CONTINUE;
+                return find_open_file_manager_target_at(ev.x, ev.y, this.fm_cache) ? DND.DragMotionResult.MOVE_DROP : DND.DragMotionResult.CONTINUE;
             },
             dragDrop: (ev) => {
-                const actor = ev?.dropActor, entry = this.dragged_entry;
-                if (!entry || entry.is_special) return DND.DragDropResult.CONTINUE;
+                const actor = ev?.dropActor, tile = this.dragged_tile, entry = this.dragged_entry;
+                if (!entry || entry.is_special || !ev?.clutterEvent) return DND.DragDropResult.CONTINUE;
                 const [dx, dy] = ev.clutterEvent.get_coords();
                 const fm_uri = find_open_file_manager_target_at(dx, dy, this.fm_cache);
                 if (!fm_uri) return DND.DragDropResult.CONTINUE;
                 this.dragged_entry = null;
-                if (!move_uri_to_target(entry.uri, fm_uri, () => this.scanner?.schedule_rescan(60))) {
-                    return DND.DragDropResult.CONTINUE;
-                }
+                this.dragged_tile = null;
+                if (!move_uri_to_target(entry.uri, fm_uri, () => this.scanner?.schedule_rescan(60))) return DND.DragDropResult.CONTINUE;
                 if (actor && actor.get_parent?.() === Main.uiGroup) actor.destroy();
+                tile?.finish_external_drop(ev.clutterEvent.get_time?.() ?? 0);
                 return DND.DragDropResult.SUCCESS;
             },
         };
@@ -144,8 +141,7 @@ export class DesktopManager {
             const wa = this._get_workarea_for_monitor(mon_idx, mon);
             const local_wa = { x: 0, y: 0, width: wa.width, height: wa.height };
             const actor = new St.Widget({
-                style_class: 'seabed-desktop-canvas', reactive: true,
-                x: wa.x, y: wa.y, width: wa.width, height: wa.height,
+                style_class: 'seabed-desktop-canvas', reactive: true, x: wa.x, y: wa.y, width: wa.width, height: wa.height,
             });
             actor._delegate = {
                 handleDragOver: (source) => (source?.entry ? DND.DragMotionResult.MOVE_DROP : DND.DragMotionResult.CONTINUE),
@@ -153,23 +149,30 @@ export class DesktopManager {
             };
             let press_sig = 0;
             if (typeof Clutter.ClickGesture === 'function') {
+                const is_bg = (g) => {
+                    const { x, y } = g.get_coords_abs();
+                    return global.stage?.get_actor_at_pos?.(Clutter.PickMode.REACTIVE, x, y) === actor;
+                };
                 const bg_click = new Clutter.ClickGesture({ required_button: Clutter.BUTTON_SECONDARY, recognize_on_press: true });
+                bg_click.connect('may-recognize', () => is_bg(bg_click));
                 bg_click.connect('recognize', () => {
                     this._select_tile(null);
-                    const coords = bg_click.get_coords_abs();
-                    this.context_menu?.open_for_background(coords.x, coords.y);
+                    const { x, y } = bg_click.get_coords_abs();
+                    this.context_menu?.open_for_background(x, y);
                 });
-                actor.add_action(bg_click);
                 const left_click = new Clutter.ClickGesture({ required_button: Clutter.BUTTON_PRIMARY, recognize_on_press: true });
+                left_click.connect('may-recognize', () => is_bg(left_click));
                 left_click.connect('recognize', () => { this._select_tile(null); this.context_menu?.close(); });
+                actor.add_action(bg_click);
                 actor.add_action(left_click);
             } else {
                 press_sig = actor.connect('button-press-event', (_actor, event) => {
+                    if (event.get_source() !== actor) return Clutter.EVENT_PROPAGATE;
                     const btn = event.get_button();
                     if (btn === 1) { this._select_tile(null); this.context_menu?.close(); return Clutter.EVENT_PROPAGATE; }
                     if (btn === 3) {
-                        this._select_tile(null);
                         const [sx, sy] = event.get_coords();
+                        this._select_tile(null);
                         this.context_menu?.open_for_background(sx, sy);
                         return Clutter.EVENT_STOP;
                     }
@@ -189,9 +192,7 @@ export class DesktopManager {
     _compute_sorted_and_coords(local_wa) {
         const sorted = sort_desktop_entries(this.entries, this.settings.arrange_order(), this.settings.sort_special_folders());
         const dims = compute_cell_dimensions(this.settings.icon_size());
-        const coords = compute_grid_positions(
-            sorted, local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap, this.settings.icon_positions(),
-        );
+        const coords = compute_grid_positions(sorted, local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap, this.settings.icon_positions());
         return [sorted, coords];
     }
     _sync_tile_positions() {
@@ -207,8 +208,8 @@ export class DesktopManager {
         if (this.canvases.length === 0) return;
         const cbs = {
             on_select: (t) => this._select_tile(t),
-            on_drag_begin: (t) => { this.dragged_entry = t.entry; refresh_file_manager_cache(this.fm_cache); },
-            on_drag_end: () => { this.dragged_entry = null; this._sync_tile_positions(); },
+            on_drag_begin: (t) => { this.dragged_tile = t; this.dragged_entry = t.entry; refresh_file_manager_cache(this.fm_cache); },
+            on_drag_end: () => { this.dragged_tile = null; this.dragged_entry = null; this._sync_tile_positions(); },
             on_context_menu: (t, sx, sy) => this.context_menu?.open_for_tile(t, sx, sy),
             on_drop_into_entry: (s, d) => move_uri_to_target(s.uri, d.uri, () => this.scanner?.schedule_rescan(60)),
         };
@@ -235,10 +236,7 @@ export class DesktopManager {
         }
     }
     destroy() {
-        if (this.drag_monitor && DND && typeof DND.removeDragMonitor === 'function') {
-            DND.removeDragMonitor(this.drag_monitor);
-            this.drag_monitor = null;
-        }
+        if (this.drag_monitor && DND && typeof DND.removeDragMonitor === 'function') { DND.removeDragMonitor(this.drag_monitor); this.drag_monitor = null; }
         for (const [obj, id] of this.signals) { try { obj.disconnect(id); } catch (_e) { /* ignore */ } }
         this.signals.length = 0;
         if (this.scanner) { this.scanner.destroy(); this.scanner = null; }
@@ -248,6 +246,7 @@ export class DesktopManager {
         this.entries.length = 0;
         this.selected_id = null;
         this.dragged_entry = null;
+        this.dragged_tile = null;
         this.ext_settings = null;
         this.settings = null;
     }

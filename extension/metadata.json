@@ -5,7 +5,7 @@
     "url": "https://github.com/UberMetroid/seabed",
     "settings-schema": "org.gnome.shell.extensions.seabed",
     "gettext-domain": "seabed@ubermetroid.github.io",
-    "version-name": "1.2.0",
+    "version-name": "1.2.1",
     "session-modes": [
         "user"
     ],

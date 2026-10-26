@@ -118,9 +118,9 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.2.0',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.2.1',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
-        'Clutter.ClickGesture', 'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
+        'Clutter.ClickGesture', 'may-recognize', 'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
         'thumbnail::path', 'Gio.FileIcon.new', '"session-modes"', 'refresh_file_manager_cache',
         'tile.update(entry, pos', 'Promise.all([', 'NETWORK_SCHEMES', '_dragInProgress',
     ];
