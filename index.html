@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Seabed — Wayland-Native Desktop Icons for GNOME 45–50</title>
   <meta name="description" content="Zero-subprocess, Wayland-native desktop icons extension for GNOME Shell 45–50 rendering ~/Desktop, Home, Trash, and mounted drives natively inside the compositor background layer. Built to pair with Kelp, Reef, and Shoal.">
+  <link rel="icon" type="image/png" href="brand/favicon-64.png" />
   <style>
     :root {
       --bg: #0b0d10;
@@ -67,6 +68,14 @@
     .nav-links a { color: var(--muted); }
     .nav-links a:hover { color: var(--text); text-decoration: none; }
     .hero { padding: 72px 0 56px; text-align: center; }
+    .hero-icon {
+      display: block;
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 20px;
+      border-radius: 26px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 24px rgba(251, 168, 108, 0.22);
+    }
     .eyebrow {
       display: inline-block;
       font-family: var(--mono);
@@ -215,6 +224,7 @@
 
   <main class="container">
     <section class="hero" style="border-top: none;">
+      <img class="hero-icon" src="brand/icon-512.png" width="120" height="120" alt="Seabed Icon" />
       <span class="eyebrow">seabed@ubermetroid.github.io · Wayland-First · Zero Subprocesses</span>
       <h1>Wayland-Native Desktop Icons Built to Pair with Kelp, Reef &amp; Shoal</h1>
       <p class="subtitle">
