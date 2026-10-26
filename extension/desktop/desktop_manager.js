@@ -49,7 +49,7 @@ export class DesktopManager {
         const dims = compute_cell_dimensions(this.settings.icon_size());
         const snapped = snap_pixel_to_slot(tx - dims.width / 2, ty - dims.height / 2, canvas.local_wa, dims.width, dims.height, this.settings.start_corner(), dims.gap);
         canvas.preview.set_style(build_drop_preview_inline_style({
-            width: dims.width, height: dims.height, border_width: this.settings.border_width(), border_radius: this.settings.border_radius(), border_color: this.settings.border_color_rgba(),
+            width: dims.width, icon_px: dims.icon_px, border_width: this.settings.border_width(), border_radius: this.settings.border_radius(), border_color: this.settings.border_color_rgba(),
         }));
         canvas.preview.set_position(snapped.x, snapped.y); canvas.preview.show();
         return snapped;

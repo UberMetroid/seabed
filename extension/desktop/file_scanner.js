@@ -2,12 +2,28 @@
 // Async ~/Desktop enumerator, Home & trash:/// inspector, and Gio.VolumeMonitor mount watcher.
 
 import GLib from 'gi://GLib';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GioUnix from 'gi://GioUnix';
 
 export const MAX_DESKTOP_ENTRIES = 256;
 export const MAX_TRASH_PROBES = 64;
 export const MAX_VOLUMES = 32;
+
+export function load_square_image_gicon(img_path, fallback_file) {
+    try {
+        const pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(img_path, 128, 128, true);
+        if (pb) {
+            const pw = pb.get_width(), ph = pb.get_height();
+            if (pw === ph) return pb;
+            const side = Math.max(pw, ph), sq = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, true, 8, side, side);
+            sq.fill(0x00000000);
+            pb.copy_area(0, 0, pw, ph, sq, Math.floor((side - pw) / 2), Math.floor((side - ph) / 2));
+            return sq;
+        }
+    } catch (_e) { /* fallback to Gio.FileIcon */ }
+    return Gio.FileIcon.new(fallback_file || Gio.File.new_for_path(img_path));
+}
 
 const QUERY_ATTRS = [
     'standard::name', 'standard::display-name', 'standard::type', 'standard::icon',
@@ -36,14 +52,10 @@ export class DesktopFileScanner {
     constructor(settings, on_entries_changed) {
         this.settings = settings;
         this.on_entries_changed = on_entries_changed;
-        this.cancellable = null;
-        this.desktop_monitor = null;
-        this.trash_monitor = null;
-        this.desktop_sig = 0;
-        this.trash_sig = 0;
+        this.cancellable = this.desktop_monitor = this.trash_monitor = null;
+        this.desktop_sig = this.trash_sig = this.debounce_id = 0;
         this.vol_monitor = Gio.VolumeMonitor.get();
         this.vol_sigs = [];
-        this.debounce_id = 0;
         this._setup_monitors();
     }
 
@@ -204,51 +216,38 @@ export class DesktopFileScanner {
         let gicon = info.get_icon() || Gio.ThemedIcon.new(is_dir ? 'folder' : 'text-x-generic');
 
         if (thumb && GLib.file_test(thumb, GLib.FileTest.IS_REGULAR)) {
-            gicon = Gio.FileIcon.new(Gio.File.new_for_path(thumb));
+            gicon = load_square_image_gicon(thumb, Gio.File.new_for_path(thumb));
         } else if (!is_dir && mime.startsWith('image/') && path && size > 0 && size <= 16777216) {
-            gicon = Gio.FileIcon.new(child);
+            gicon = load_square_image_gicon(path, child);
         } else if (is_launcher) {
             try {
                 const app = GioUnix.DesktopAppInfo.new_from_filename(path);
-                if (app) {
-                    display_name = app.get_display_name() || display_name;
-                    gicon = app.get_icon() || gicon;
-                }
+                if (app) { display_name = app.get_display_name() || display_name; gicon = app.get_icon() || gicon; }
             } catch (_e) { /* fallback to file info */ }
         }
 
         return {
             id: `file:${child.get_uri()}`, name: display_name, uri: child.get_uri(), path, gicon,
-            kind: is_dir ? 'folder' : (is_launcher ? 'launcher' : (mime || 'file')),
-            size,
+            kind: is_dir ? 'folder' : (is_launcher ? 'launcher' : (mime || 'file')), size,
             mtime: Number(info.get_attribute_uint64('time::modified')) || 0,
-            is_special: false, is_symlink: Boolean(info.get_is_symlink()),
-            is_desktop_launcher: is_launcher, mount: null,
+            is_special: false, is_symlink: Boolean(info.get_is_symlink()), is_desktop_launcher: is_launcher, mount: null,
         };
     }
 
     destroy() {
-        if (this.debounce_id !== 0) {
-            try { GLib.Source.remove(this.debounce_id); } catch (_e) { /* ignore */ }
-            this.debounce_id = 0;
-        }
+        if (this.debounce_id !== 0) { try { GLib.Source.remove(this.debounce_id); } catch (_e) { /* ignore */ } this.debounce_id = 0; }
         if (this.cancellable !== null) { this.cancellable.cancel(); this.cancellable = null; }
         if (this.desktop_monitor !== null) {
             if (this.desktop_sig !== 0) this.desktop_monitor.disconnect(this.desktop_sig);
-            this.desktop_monitor.cancel();
-            this.desktop_monitor = null;
-            this.desktop_sig = 0;
+            this.desktop_monitor.cancel(); this.desktop_monitor = null; this.desktop_sig = 0;
         }
         if (this.trash_monitor !== null) {
             if (this.trash_sig !== 0) this.trash_monitor.disconnect(this.trash_sig);
-            this.trash_monitor.cancel();
-            this.trash_monitor = null;
-            this.trash_sig = 0;
+            this.trash_monitor.cancel(); this.trash_monitor = null; this.trash_sig = 0;
         }
         if (this.vol_monitor !== null) {
             for (const id of this.vol_sigs) this.vol_monitor.disconnect(id);
-            this.vol_sigs.length = 0;
-            this.vol_monitor = null;
+            this.vol_sigs.length = 0; this.vol_monitor = null;
         }
     }
 }

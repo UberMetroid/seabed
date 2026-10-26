@@ -4,7 +4,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import { compute_dropped_file_slots, compute_grid_positions, parse_uri_list, snap_pixel_to_slot, sort_desktop_entries } from '../extension/desktop/desktop_grid.js';
-import { NETWORK_SCHEMES, is_network_mount } from '../extension/desktop/file_scanner.js';
+import { NETWORK_SCHEMES, is_network_mount, load_square_image_gicon } from '../extension/desktop/file_scanner.js';
 import {
     ICON_PIXEL_SIZES, build_drop_preview_inline_style, build_label_inline_style, build_tile_inline_style, compute_cell_dimensions, resolve_icon_pixel_size,
 } from '../extension/ui/tile_style.js';
@@ -110,11 +110,11 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.3.0',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.3.1',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'should-handle-sequence', 'may-recognize', 'Clutter.EventPhase',
         'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
-        'thumbnail::path', 'Gio.FileIcon.new', '"session-modes"', 'refresh_file_manager_cache',
+        'thumbnail::path', 'load_square_image_gicon', '"session-modes"', 'refresh_file_manager_cache',
         'tile.update(entry, pos', 'Promise.all([', 'NETWORK_SCHEMES', '_dragInProgress',
         'seabed-drop-preview', 'Main.xdndHandler', 'SELECTION_DND', 'read_external_dnd_uris', 'set_drop_hover',
     ];
@@ -179,23 +179,27 @@ async function verify_behavioral_and_gtk_suite() {
         assert(sort_desktop_entries(sample, 'KIND', true)[0].id === 'f2', 'KIND sort with mixed special folders');
 
         const wa = { x: 0, y: 32, width: 1920, height: 1048 };
-        const tl = compute_grid_positions(3, wa, 112, 108, 'top-left', 8);
-        const tr = compute_grid_positions(3, wa, 112, 108, 'top-right', 8);
-        const bl = compute_grid_positions(3, wa, 112, 108, 'bottom-left', 8);
-        const br = compute_grid_positions(3, wa, 112, 108, 'bottom-right', 8);
+        const tl = compute_grid_positions(3, wa, 112, 108, 'top-left', 8), tr = compute_grid_positions(3, wa, 112, 108, 'top-right', 8);
+        const bl = compute_grid_positions(3, wa, 112, 108, 'bottom-left', 8), br = compute_grid_positions(3, wa, 112, 108, 'bottom-right', 8);
         assert(tl.length === 3 && tl[0].x === 16 && tl[0].y === 48 && tl[1].y > tl[0].y, 'top-left grid');
         assert(tr[0].x > 1700 && bl[0].y > 900 && br[0].x > 1700 && br[0].y > 900, 'all 4 start corners');
-        s.set_icon_slot('f2', 3, 2);
-        s.set_icon_slot('stale', 5, 5);
-        s.prune_icon_positions(new Set(['f2', 'f1']));
+        s.set_icon_slot('f2', 3, 2); s.set_icon_slot('stale', 5, 5); s.prune_icon_positions(new Set(['f2', 'f1']));
         const custom_pos = compute_grid_positions(by_name, wa, 112, 108, 'top-left', 8, s.icon_positions());
         assert(custom_pos[2].col === 3 && custom_pos[2].row === 2 && !s.icon_positions().stale, 'custom slot & prune');
         const snapped = snap_pixel_to_slot(custom_pos[2].x, custom_pos[2].y, wa, 112, 108, 'top-left', 8);
         assert(snapped.col === 3 && snapped.row === 2, 'snap pixel to grid slot');
         s.prune_icon_positions(new Set());
         assert(Object.keys(s.icon_positions()).length === 0, 'prune empty desktop positions');
-        assert(build_tile_inline_style({ selected: true, border_width: 2 }).includes('2px solid'), 'tile style');
-        assert(build_drop_preview_inline_style({ width: 108, height: 104, border_width: 2, border_radius: 12, border_color: '#2ec27e' }).includes('108px'), 'drop preview style');
+        const ts = build_tile_inline_style({ width: 112, selected: true, border_width: 2 });
+        assert(ts.includes('2px solid') && ts.includes('width: 100px;') && !ts.includes('height:'), 'compact tile style');
+        const ps = build_drop_preview_inline_style({ width: 112, icon_px: 48, border_width: 2, border_radius: 12, border_color: '#2ec27e' });
+        assert(ps.includes('width: 100px;') && ps.includes('height: 71px;') && ps.includes('padding: 6px 4px;'), 'drop preview style');
+        const rect_png = GLib.build_filenamev([tmp_dir, 'rect.png']), GdkPixbuf = (await import('gi://GdkPixbuf')).default;
+        const rect_pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, true, 8, 40, 80);
+        rect_pb.fill(0xff0000ff); rect_pb.savev(rect_png, 'png', [], []);
+        const sq_icon = load_square_image_gicon(rect_png);
+        assert(sq_icon instanceof Gio.Icon && sq_icon.get_width() === 128 && sq_icon.get_height() === 128, 'square image gicon');
+        try { Gio.File.new_for_path(rect_png).delete(null); } catch (_e) { /* ignore */ }
         const parsed_uris = parse_uri_list('# comment\r\nfile:///home/user/a.txt\r\nfile:///home/user/b.txt\t10:20:30:40\r\nfile:///home/user/a.txt\n');
         assert(parsed_uris.length === 2 && parsed_uris[0] === 'file:///home/user/a.txt' && parsed_uris[1] === 'file:///home/user/b.txt', 'parse_uri_list');
         const drop_slots = compute_dropped_file_slots(3, 2, 7, wa, 112, 108, 'top-left', 8, { existing: { col: 3, row: 0 } });
@@ -204,13 +208,10 @@ async function verify_behavioral_and_gtk_suite() {
         assert(auto_slots.length === 2 && auto_slots[0].col === 0 && auto_slots[0].row === 4 && auto_slots[1].row === 5, 'auto occupancy');
         assert(build_label_inline_style(true).includes('#12161c') && build_label_inline_style(false).includes('#f6f8fa'), 'label');
 
-        const Gtk = (await import('gi://Gtk?version=4.0')).default;
-        const Adw = (await import('gi://Adw?version=1')).default;
+        const Gtk = (await import('gi://Gtk?version=4.0')).default, Adw = (await import('gi://Adw?version=1')).default;
         if (Gtk.init_check()) {
             Adw.init();
-            const signals = [];
-            const page_ap = build_appearance_page(ext_settings, s, signals);
-            const page_ab = build_about_page();
+            const signals = [], page_ap = build_appearance_page(ext_settings, s, signals), page_ab = build_about_page();
             assert(page_ap.get_title() === 'Appearance & Borders' && page_ab.get_title() === 'About & Support', 'GTK4 pages');
             let root_to_walk = [page_ap, page_ab];
             try {
@@ -218,15 +219,10 @@ async function verify_behavioral_and_gtk_suite() {
                 if (Gio.File.new_for_path(gres).query_exists(null)) {
                     Gio.resources_register(Gio.Resource.load(gres));
                     const { default: SeabedPreferences } = await import('../extension/prefs.js');
-                    const prefs = Object.create(SeabedPreferences.prototype);
-                    prefs.getSettings = () => ext_settings;
-                    const win = new Adw.PreferencesWindow();
-                    prefs.fillPreferencesWindow(win);
-                    root_to_walk = [win];
+                    const prefs = Object.create(SeabedPreferences.prototype), win = new Adw.PreferencesWindow();
+                    prefs.getSettings = () => ext_settings; prefs.fillPreferencesWindow(win); root_to_walk = [win];
                 }
-            } catch (e) {
-                if (String(e).includes('Verification failed')) throw e;
-            }
+            } catch (e) { if (String(e).includes('Verification failed')) throw e; }
             const walk_labels = (w) => {
                 if (!w) return;
                 if (w instanceof Gtk.Label) {
@@ -240,9 +236,9 @@ async function verify_behavioral_and_gtk_suite() {
             for (const [obj, sig] of signals) obj.disconnect(sig);
         }
     } finally {
-        try { dst_xml.delete(null); } catch (_e) { /* ignore */ }
-        try { Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, 'gschemas.compiled'])).delete(null); } catch (_e) { /* ignore */ }
-        try { Gio.File.new_for_path(tmp_dir).delete(null); } catch (_e) { /* ignore */ }
+        for (const p of [dst_xml, Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, 'gschemas.compiled'])), Gio.File.new_for_path(tmp_dir)]) {
+            try { p.delete(null); } catch (_e) { /* ignore */ }
+        }
     }
 }
 

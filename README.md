@@ -34,7 +34,7 @@ Derived from [Desktop Icons NG (DING)](https://gitlab.com/rastersoft/desktop-ico
 
 ## Quick Install
 
-Download `seabed@ubermetroid.github.io.shell-extension.zip` from [**GitHub Releases (`v1.3.0`)**](https://github.com/UberMetroid/seabed/releases/latest):
+Download `seabed@ubermetroid.github.io.shell-extension.zip` from [**GitHub Releases (`v1.3.1`)**](https://github.com/UberMetroid/seabed/releases/latest):
 
 ```bash
 gnome-extensions install --force seabed@ubermetroid.github.io.shell-extension.zip
@@ -56,7 +56,7 @@ gnome-extensions prefs seabed@ubermetroid.github.io
 | **1. Desktop & Icons** | Show Personal Home Folder, Show Trash Icon (`trash:///`), Show Mounted External Drives, Show Network Drives, Show Hidden Files (`.dotfiles`), Show Symlink Emblem Badge, Single-Click to Open, Show on All Monitors, and **Reset to Seabed Defaults**. |
 | **2. Grid & Sorting** | Icon Size (`Tiny 32px`, `Small 36px`, `Standard 48px`, `Large 64px`), Start Corner (`Top Left`, `Top Right`, `Bottom Left`, `Bottom Right`), Arrange Order (`Name A -> Z`, `Name Z -> A`, `Modified Time`, `Kind / Type`, `File Size`), and Sort Special Folders Alongside Files toggle. |
 | **3. Appearance & Borders** | Dark Text in Icon Labels (for light wallpapers), Show Selection & Hover Border Ring, Accent Border Color picker, **Quick Color Presets** (*Gruvbox Amber*, *Kelp Emerald*, *Ocean Cyan*, *Coral Red*), Border Width (`0–8 px`), and Border Corner Radius (`0–24 px`). |
-| **4. About & Support** | Release version (`v1.3.0`), `GPL-3.0-or-later` license & Desktop Icons NG attribution, **Star Seabed on GitHub**, **Tuition, Not Coffee — Help send my daughter to college**, **Project Website**, and **Report an Issue**. |
+| **4. About & Support** | Release version (`v1.3.1`), `GPL-3.0-or-later` license & Desktop Icons NG attribution, **Star Seabed on GitHub**, **Tuition, Not Coffee — Help send my daughter to college**, **Project Website**, and **Report an Issue**. |
 
 ---
 
