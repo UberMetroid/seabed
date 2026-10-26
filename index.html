@@ -208,7 +208,7 @@
     <div class="container nav">
       <div class="brand">
         <span>🐚 Seabed</span>
-        <span class="brand-badge">v1.0.0 · GNOME 45–50</span>
+        <span class="brand-badge">v1.1.0 · GNOME 45–50</span>
       </div>
       <nav class="nav-links">
         <a href="#features">Features</a>
@@ -228,10 +228,10 @@
       <span class="eyebrow">seabed@ubermetroid.github.io · Wayland-First · Zero Subprocesses</span>
       <h1>Wayland-Native Desktop Icons Built to Pair with Kelp, Reef &amp; Shoal</h1>
       <p class="subtitle">
-        Seabed renders your <code>~/Desktop</code> files, folders, launchers, Personal Home, Trash (<code>trash:///</code>), and mounted drives directly inside <code>Main.layoutManager._backgroundGroup</code>—with zero fake <code>Meta.Window</code> hacks and zero GTK3 subprocesses.
+        Seabed renders your <code>~/Desktop</code> files, folders, launchers, live image &amp; thumbnail previews, Personal Home, Trash (<code>trash:///</code>), and mounted drives directly inside <code>Main.layoutManager._backgroundGroup</code>—with native drag-and-drop to desktop grid slots, folders, and open File Manager windows, zero fake <code>Meta.Window</code> hacks, and zero GTK3 subprocesses.
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.com/UberMetroid/seabed/releases/latest">⬇ Download Seabed v1.0.0 (.zip)</a>
+        <a class="btn btn-primary" href="https://github.com/UberMetroid/seabed/releases/latest">⬇ Download Seabed v1.1.0 (.zip)</a>
         <a class="btn" href="https://github.com/UberMetroid/seabed">⭐ Star on GitHub</a>
         <a class="btn" href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee — Help send my daughter to college</a>
       </div>
@@ -258,6 +258,14 @@
         <div class="card">
           <h3>Native Compositor Background Layer</h3>
           <p>Attaches directly to <code>Main.layoutManager._backgroundGroup</code>—so Kelp never tries to tile a fake desktop window and Reef never dodges your desktop wallpaper.</p>
+        </div>
+        <div class="card">
+          <h3>Drag-and-Drop &amp; File Browser Drops</h3>
+          <p>Drag icons to any grid slot on the wallpaper, drop files onto desktop folders, Home, Drives, or Trash, and drag directly into open Files/Nautilus windows.</p>
+        </div>
+        <div class="card">
+          <h3>Live Image &amp; Thumbnail Previews</h3>
+          <p>Renders freedesktop thumbnails (<code>thumbnail::path</code>) and direct <code>Gio.FileIcon</code> image previews alongside <code>.desktop</code> application launchers and symlink badges.</p>
         </div>
         <div class="card">
           <h3>Zero Subprocesses (shexli Clean)</h3>
