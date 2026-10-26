@@ -131,6 +131,7 @@ function verify_process_boundaries_and_invariants() {
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
         'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.0.0',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
+        'Clutter.ClickGesture', 'Open in Terminal',
     ];
     for (const req of reqs) assert(combined.includes(req), `Missing invariant: ${req}`);
     assert(!combined.includes('Rust installer') && !combined.includes('cargo install'), 'No Rust CLI reference');

@@ -60,6 +60,21 @@ export function empty_trash_async(on_done) {
     );
 }
 
+function open_terminal_in_dir(dir_path) {
+    if (!dir_path) return;
+    const candidates = [
+        'org.gnome.Ptyxis.desktop', 'org.gnome.Console.desktop', 'org.gnome.Terminal.desktop',
+        'kitty.desktop', 'com.mitchellh.ghostty.desktop', 'Alacritty.desktop', 'foot.desktop',
+    ];
+    for (const id of candidates) {
+        try {
+            const app = Gio.DesktopAppInfo.new(id);
+            if (app && app.launch([Gio.File.new_for_path(dir_path)], null)) return;
+        } catch (_e) { /* try next */ }
+    }
+    open_uri_in_files(Gio.File.new_for_path(dir_path).get_uri());
+}
+
 export class DesktopContextMenu {
     constructor(ext, settings, on_refresh) {
         this.ext = ext;
@@ -74,15 +89,24 @@ export class DesktopContextMenu {
         this.menu_manager.addMenu(this.menu);
     }
 
+    _move_anchor(x, y) {
+        const rx = Math.round(x), ry = Math.round(y);
+        this.anchor.set_position(rx, ry);
+        Main.layoutManager?.setDummyCursorGeometry?.(rx, ry, 0, 0);
+    }
+
     open_for_tile(tile, x, y) {
         const entry = tile.entry;
         this.menu.removeAll();
-        this.anchor.set_position(Math.round(x), Math.round(y));
+        this._move_anchor(x, y);
 
         this._add_item(`Open "${entry.name}"`, () => launch_desktop_entry(entry));
 
         const parent_uri = Gio.File.new_for_path(resolve_desktop_dir_path()).get_uri();
         this._add_item('Open in Files', () => open_uri_in_files(entry.is_special ? entry.uri : parent_uri));
+        if ((entry.kind === 'folder' || entry.kind === 'home' || entry.kind === 'volume') && entry.path) {
+            this._add_item('Open in Terminal', () => open_terminal_in_dir(entry.path));
+        }
 
         if (!entry.is_special && entry.uri) {
             this._add_item('Move to Trash', () => {
@@ -103,17 +127,19 @@ export class DesktopContextMenu {
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._append_common_footer();
-        this.menu.open( true);
+        this.menu.open(true);
     }
 
     open_for_background(x, y) {
         this.menu.removeAll();
-        this.anchor.set_position(Math.round(x), Math.round(y));
+        this._move_anchor(x, y);
 
         this._add_item('New Folder on Desktop', () => create_new_desktop_folder(() => this.on_refresh?.()));
 
-        const desk_uri = Gio.File.new_for_path(resolve_desktop_dir_path()).get_uri();
+        const desk_path = resolve_desktop_dir_path();
+        const desk_uri = Gio.File.new_for_path(desk_path).get_uri();
         this._add_item('Open in Files', () => open_uri_in_files(desk_uri));
+        this._add_item('Open in Terminal', () => open_terminal_in_dir(desk_path));
 
         const sort_sub = new PopupMenu.PopupSubMenuMenuItem('Sort Desktop By');
         const active_order = this.settings.arrange_order();

@@ -168,6 +168,25 @@ export class DesktopManager {
                 }
                 return Clutter.EVENT_PROPAGATE;
             });
+            if (typeof Clutter.ClickGesture === 'function') {
+                const bg_click = new Clutter.ClickGesture({
+                    required_button: Clutter.BUTTON_SECONDARY, recognize_on_press: true,
+                });
+                bg_click.connect('recognize', () => {
+                    this._select_tile(null);
+                    const coords = bg_click.get_coords_abs();
+                    this.context_menu?.open_for_background(coords.x, coords.y);
+                });
+                actor.add_action(bg_click);
+                const left_click = new Clutter.ClickGesture({
+                    required_button: Clutter.BUTTON_PRIMARY, recognize_on_press: true,
+                });
+                left_click.connect('recognize', () => {
+                    this._select_tile(null);
+                    this.context_menu?.close();
+                });
+                actor.add_action(left_click);
+            }
             bg_group.add_child(actor);
             this.canvases.push({ actor, press_sig, workarea: wa });
         }
@@ -185,20 +204,13 @@ export class DesktopManager {
         if (this.canvases.length === 0) return;
 
         const sorted = sort_desktop_entries(
-            this.entries,
-            this.settings.arrange_order(),
-            this.settings.sort_special_folders(),
+            this.entries, this.settings.arrange_order(), this.settings.sort_special_folders(),
         );
         const dims = compute_cell_dimensions(this.settings.icon_size());
         const corner = this.settings.start_corner();
 
         for (const canvas of this.canvases) {
-            const local_wa = {
-                x: 0,
-                y: 0,
-                width: canvas.workarea.width,
-                height: canvas.workarea.height,
-            };
+            const local_wa = { x: 0, y: 0, width: canvas.workarea.width, height: canvas.workarea.height };
             const coords = compute_grid_positions(
                 sorted.length, local_wa, dims.width, dims.height, corner, dims.gap,
             );
@@ -222,14 +234,8 @@ export class DesktopManager {
             try { obj.disconnect(id); } catch (_e) { /* ignore */ }
         }
         this.signals.length = 0;
-        if (this.scanner) {
-            this.scanner.destroy();
-            this.scanner = null;
-        }
-        if (this.context_menu) {
-            this.context_menu.destroy();
-            this.context_menu = null;
-        }
+        if (this.scanner) { this.scanner.destroy(); this.scanner = null; }
+        if (this.context_menu) { this.context_menu.destroy(); this.context_menu = null; }
         this._clear_canvases();
         this.unload_theme();
         this.ext_settings = null;

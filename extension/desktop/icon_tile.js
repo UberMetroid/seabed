@@ -99,14 +99,30 @@ export class DesktopIconTile {
             this.sync_style();
         });
         this._press_sig = this.actor.connect('button-press-event', (_actor, event) => this._on_button_press(event));
+        this._click_sig = this.actor.connect('clicked', (_actor, clicked_button) => {
+            this._activate_button(clicked_button || 1);
+        });
+        if (typeof Clutter.ClickGesture === 'function') {
+            const right_gesture = new Clutter.ClickGesture({
+                required_button: Clutter.BUTTON_SECONDARY,
+                recognize_on_press: true,
+            });
+            right_gesture.connect('recognize', () => {
+                this.callbacks?.on_select?.(this);
+                const coords = right_gesture.get_coords_abs();
+                this.callbacks?.on_context_menu?.(this, coords.x, coords.y);
+            });
+            this.actor.add_action(right_gesture);
+        }
         this.sync_style();
     }
 
-    _on_button_press(event) {
-        const btn = event.get_button();
+    _activate_button(btn, sx = 0, sy = 0) {
         if (btn === 3) {
             this.callbacks?.on_select?.(this);
-            const [sx, sy] = event.get_coords();
+            if (sx === 0 && sy === 0 && global.get_pointer) {
+                [sx, sy] = global.get_pointer();
+            }
             this.callbacks?.on_context_menu?.(this, sx, sy);
             return Clutter.EVENT_STOP;
         }
@@ -126,6 +142,11 @@ export class DesktopIconTile {
             return Clutter.EVENT_STOP;
         }
         return Clutter.EVENT_PROPAGATE;
+    }
+
+    _on_button_press(event) {
+        const [sx, sy] = event.get_coords();
+        return this._activate_button(event.get_button(), sx, sy);
     }
 
     set_selected(selected) {
@@ -160,6 +181,7 @@ export class DesktopIconTile {
         if (this.actor) {
             if (this._hover_sig) { this.actor.disconnect(this._hover_sig); this._hover_sig = 0; }
             if (this._press_sig) { this.actor.disconnect(this._press_sig); this._press_sig = 0; }
+            if (this._click_sig) { this.actor.disconnect(this._click_sig); this._click_sig = 0; }
             this.actor.destroy();
             this.actor = null;
         }
