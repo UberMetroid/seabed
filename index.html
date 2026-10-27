@@ -5,224 +5,208 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Seabed — Wayland-Native Desktop Icons for GNOME 45–50</title>
   <meta name="description" content="Zero-subprocess, Wayland-native desktop icons extension for GNOME Shell 45–50 rendering ~/Desktop, Home, Trash, and mounted drives natively inside the compositor background layer. Built to pair with Kelp, Reef, and Shoal.">
+  <meta name="theme-color" content="#070a0f">
   <link rel="icon" type="image/png" href="brand/favicon-64.png" />
   <style>
     :root {
-      --bg: #0b0d10;
-      --surface: #12161c;
-      --surface-alt: #181d25;
-      --border: #262e3b;
-      --accent: #f66151;
-      --seabed: #fba86c;
-      --shoal: #5bc8af;
-      --reef: #6ad7e1;
+      --bg: #070a0f;
+      --surface: rgba(16, 22, 32, 0.88);
+      --surface-alt: rgba(22, 30, 44, 0.92);
+      --border: #1f2b3d;
+      --primary: #fbb86c;
+      --accent: #fbb86c;
+      --primary-rgb: 251, 184, 108;
+      --primary-soft: rgba(251, 184, 108, 0.14);
+      --seabed: var(--primary);
       --kelp: #2ee59d;
-      --text: #eef2f6;
-      --muted: #9aa5b4;
+      --text: #eef4fa;
+      --muted: #98a9bc;
       --mono: ui-monospace, "JetBrains Mono", "Fira Code", SFMono-Regular, Menlo, Consolas, monospace;
       --sans: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Cantarell", sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: var(--bg);
+      background: radial-gradient(circle at 16% 6%, rgba(var(--primary-rgb), 0.13), transparent 38%),
+                  radial-gradient(circle at 86% 90%, rgba(106, 215, 225, 0.08), transparent 42%),
+                  var(--bg);
       color: var(--text);
       font-family: var(--sans);
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      padding-bottom: 84px;
     }
-    a { color: var(--seabed); text-decoration: none; }
+    a { color: var(--primary); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-    header {
-      border-bottom: 1px solid var(--border);
-      background: rgba(11, 13, 16, 0.88);
-      backdrop-filter: blur(10px);
-      position: sticky;
-      top: 0;
-      z-index: 20;
+    .omni-wrap { max-width: 1080px; margin: 14px auto 0; padding: 0 24px; position: sticky; top: 12px; z-index: 30; }
+    .omni-bar {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+      padding: 10px 16px; background: rgba(11, 16, 24, 0.88); backdrop-filter: blur(14px);
+      border: 1px solid var(--border); border-radius: 999px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
     }
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 64px;
+    .brand-cluster { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .brand-pill {
+      font-family: var(--mono); font-weight: 600; font-size: 12.5px; color: var(--text);
+      padding: 4px 11px; border-radius: 999px; background: #131c28; border: 1px solid var(--border);
+      text-decoration: none;
     }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 1.15rem;
-      color: var(--text);
+    .status-pill {
+      font-family: var(--mono); font-size: 11px; color: var(--primary);
+      padding: 3px 9px; border-radius: 999px; background: var(--primary-soft);
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
     }
-    .brand-badge {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      color: var(--seabed);
+    .nav-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+    .nav-links a { color: var(--muted); padding: 4px 9px; border-radius: 999px; text-decoration: none; font-weight: 500; }
+    .nav-links a:hover, .nav-links a.active { background: var(--primary-soft); color: var(--primary); text-decoration: none; }
+    .theme-cluster { display: flex; align-items: center; gap: 5px; }
+    .swatch {
+      width: 15px; height: 15px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.22);
+      cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease; padding: 0;
     }
-    .nav-links { display: flex; gap: 20px; font-size: 0.92rem; }
-    .nav-links a { color: var(--muted); }
-    .nav-links a:hover { color: var(--text); text-decoration: none; }
-    .hero { padding: 72px 0 56px; text-align: center; }
+    .swatch:hover, .swatch.active { transform: scale(1.2); border-color: #fff; }
+    .cycle-btn {
+      font-family: var(--mono); font-size: 12px; color: var(--text);
+      background: #131c28; border: 1px solid var(--border);
+      border-radius: 999px; padding: 2px 8px; cursor: pointer;
+    }
+    .cycle-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .agent-brief {
+      margin: 18px 0 0; border: 1px dashed rgba(var(--primary-rgb), 0.42);
+      border-radius: 12px; padding: 10px 16px; background: rgba(12, 18, 28, 0.85);
+      font-family: var(--mono); font-size: 12px;
+    }
+    .agent-brief summary { cursor: pointer; color: var(--primary); font-weight: 600; list-style: none; }
+    .agent-brief p { margin-top: 8px; color: var(--muted); line-height: 1.55; }
+    .ticker {
+      overflow: hidden; white-space: nowrap; background: #04070b;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px 0; margin: 28px 0 12px; font-family: var(--mono); font-size: 11.8px;
+    }
+    .ticker-track { display: inline-block; animation: scroll 30s linear infinite; }
+    .chip {
+      display: inline-block; margin: 0 6px; padding: 3px 10px; border-radius: 5px;
+      background: var(--primary-soft); border: 1px solid rgba(var(--primary-rgb), 0.35); color: var(--primary);
+    }
+    @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .chibi-dock { position: fixed; bottom: 14px; left: 14px; z-index: 40; display: flex; align-items: flex-end; gap: 10px; }
+    .dock-pill {
+      width: 44px; height: 44px; border-radius: 13px; background: #0a1018;
+      border: 2px solid var(--primary); color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px; text-decoration: none; box-shadow: 0 10px 26px rgba(0,0,0,0.75);
+    }
+    .dock-bubble {
+      max-width: 290px; background: rgba(10, 15, 24, 0.96); border: 1px solid var(--primary);
+      border-radius: 12px 12px 12px 2px; padding: 9px 12px;
+      font-family: var(--mono); font-size: 11.5px; color: var(--text);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.8);
+      opacity: 0; transform: translateY(6px); pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .chibi-dock:hover .dock-bubble { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .hero { padding: 48px 0 40px; text-align: center; }
     .hero-icon {
-      display: block;
-      width: 120px;
-      height: 120px;
-      margin: 0 auto 20px;
-      border-radius: 26px;
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 24px rgba(251, 168, 108, 0.22);
+      display: block; width: 120px; height: 120px; margin: 0 auto 20px; border-radius: 26px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 24px rgba(var(--primary-rgb), 0.25);
     }
     .eyebrow {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: var(--seabed);
-      background: rgba(251, 168, 108, 0.1);
-      border: 1px solid rgba(251, 168, 108, 0.3);
-      padding: 4px 12px;
-      border-radius: 999px;
-      margin-bottom: 20px;
+      display: inline-block; font-family: var(--mono); font-size: 0.8rem;
+      color: var(--primary); background: var(--primary-soft);
+      border: 1px solid rgba(var(--primary-rgb), 0.35);
+      padding: 4px 12px; border-radius: 999px; margin-bottom: 20px;
     }
-    h1 {
-      font-size: clamp(2.2rem, 5vw, 3.4rem);
-      line-height: 1.12;
-      letter-spacing: -0.02em;
-      max-width: 820px;
-      margin: 0 auto 18px;
-    }
-    .subtitle {
-      color: var(--muted);
-      font-size: 1.12rem;
-      max-width: 740px;
-      margin: 0 auto 32px;
-    }
-    .cta-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 14px;
-      margin-bottom: 48px;
-    }
+    h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.12; letter-spacing: -0.02em; max-width: 820px; margin: 0 auto 18px; }
+    .subtitle { color: var(--muted); font-size: 1.12rem; max-width: 740px; margin: 0 auto 32px; }
+    .cta-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-bottom: 48px; }
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 22px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.95rem;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      transition: transform 0.12s ease, border-color 0.12s ease;
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 8px;
+      font-weight: 600; font-size: 0.95rem; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); transition: transform 0.12s ease, border-color 0.12s ease;
     }
-    .btn:hover { transform: translateY(-1px); border-color: var(--muted); text-decoration: none; }
-    .btn-primary {
-      background: var(--seabed);
-      color: #160c04;
-      border-color: var(--seabed);
-    }
+    .btn:hover { transform: translateY(-1px); border-color: var(--primary); text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #160c04; border-color: var(--primary); }
     .desktop-frame {
-      background: #07090b;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-      text-align: left;
-      position: relative;
+      background: #07090b; border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); text-align: left; position: relative;
     }
     .gnome-bar {
-      background: #13171e;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      background: #13171e; height: 36px; display: flex; align-items: center;
+      justify-content: space-between; padding: 0 16px; font-size: 0.8rem; font-weight: 600;
       border-bottom: 1px solid var(--border);
     }
     .tray-cluster {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-family: var(--mono);
-      font-size: 0.76rem;
-      color: var(--seabed);
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 0.76rem; color: var(--primary);
     }
-    .tray-chip {
-      padding: 2px 8px;
-      border-radius: 6px;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-    }
+    .tray-chip { padding: 2px 8px; border-radius: 6px; background: var(--surface-alt); border: 1px solid var(--border); }
     section { padding: 56px 0; border-top: 1px solid var(--border); }
     h2 { font-size: 1.8rem; margin-bottom: 12px; }
     .section-lead { color: var(--muted); margin-bottom: 28px; }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 22px;
-    }
-    .card h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--seabed); }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 22px; }
+    .card h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--primary); }
     .card p { color: var(--muted); font-size: 0.94rem; }
-    code {
-      font-family: var(--mono);
-      font-size: 0.86em;
-      background: var(--surface-alt);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
+    code { font-family: var(--mono); font-size: 0.86em; background: var(--surface-alt); padding: 2px 6px; border-radius: 4px; }
     pre {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      overflow-x: auto;
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      color: #d7e0ea;
-      margin-top: 12px;
+      background: #07090b; border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px; overflow-x: auto; font-family: var(--mono); font-size: 0.85rem;
+      color: #d7e0ea; margin-top: 12px;
     }
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 36px 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
+    footer { border-top: 1px solid var(--border); padding: 36px 0; text-align: center; color: var(--muted); font-size: 0.9rem; }
   </style>
+  <script>
+    (function(){
+      var T={cyan:["#6ad7e1","106,215,225"],emerald:["#2ec27e","46,194,126"],amber:["#fbb86c","251,184,108"],coral:["#ff5555","255,85,85"]},O=["cyan","emerald","amber","coral"];
+      window.setSuiteTheme=function(n){
+        var c=T[n]||T.amber,r=document.documentElement;
+        r.style.setProperty("--primary",c[0]);r.style.setProperty("--accent",c[0]);
+        r.style.setProperty("--primary-rgb",c[1]);r.style.setProperty("--primary-soft","rgba("+c[1]+",0.14)");
+        try{localStorage.setItem("studio2201_theme",n);}catch(e){}
+        var s=document.querySelectorAll(".swatch");for(var i=0;i<s.length;i++)s[i].classList.toggle("active",s[i].dataset.t===n);
+      };
+      window.cycleSuiteTheme=function(){
+        var k="amber";try{k=localStorage.getItem("studio2201_theme")||"amber";}catch(e){}
+        window.setSuiteTheme(O[(O.indexOf(k)+1)%4]);
+      };
+      try{var s=localStorage.getItem("studio2201_theme");if(s&&T[s])window.setSuiteTheme(s);}catch(e){}
+    })();
+  </script>
 </head>
 <body>
-  <header>
-    <div class="container nav">
-      <div class="brand">
-        <span>🐚 Seabed</span>
-        <span class="brand-badge">v1.5.0 · GNOME 45–50</span>
+  <div class="omni-wrap">
+    <nav class="omni-bar" aria-label="Studio 2201 Omni-Bar">
+      <div class="brand-cluster">
+        <a class="brand-pill" href="https://studio2201.com">studio2201 // LAB</a>
+        <span class="status-pill">● SEABED v1.5.0 · WAYLAND 45–50</span>
       </div>
-      <nav class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#install">Install</a>
-        <a href="https://studio2201.github.io/kelp/">Kelp Tiler</a>
-        <a href="https://studio2201.github.io/reef/">Reef Dock</a>
-        <a href="https://studio2201.github.io/shoal/">Shoal Tray</a>
+      <div class="nav-links">
+        <a href="https://studio2201.github.io/kelp/">Kelp</a>
+        <a href="https://studio2201.github.io/reef/">Reef</a>
+        <a href="https://studio2201.github.io/tide/">Tide</a>
+        <a href="https://studio2201.github.io/coral/">Coral</a>
+        <a class="active" href="https://studio2201.github.io/seabed/">Seabed</a>
+        <a href="https://studio2201.github.io/shoal/">Shoal</a>
+        <a href="https://studio2201.com/#products">CI/CD Gates</a>
         <a href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee</a>
-        <a href="https://github.com/studio2201/seabed">GitHub</a>
-      </nav>
-    </div>
-  </header>
+        <a href="https://github.com/UberMetroid">@UberMetroid</a>
+      </div>
+      <div class="theme-cluster" aria-label="Suite Theme Switcher">
+        <button type="button" class="swatch" data-t="cyan" style="background:#6ad7e1" title="Ocean Cyan #6ad7e1" onclick="setSuiteTheme('cyan')"></button>
+        <button type="button" class="swatch" data-t="emerald" style="background:#2ec27e" title="Kelp Emerald #2ec27e" onclick="setSuiteTheme('emerald')"></button>
+        <button type="button" class="swatch active" data-t="amber" style="background:#fbb86c" title="Gruvbox Amber #fbb86c" onclick="setSuiteTheme('amber')"></button>
+        <button type="button" class="swatch" data-t="coral" style="background:#ff5555" title="Coral Red #ff5555" onclick="setSuiteTheme('coral')"></button>
+        <button type="button" class="cycle-btn" title="Cycle Suite Theme" onclick="cycleSuiteTheme()">↻</button>
+      </div>
+    </nav>
+  </div>
 
   <main class="container">
+    <details class="agent-brief">
+      <summary>[ // QUICK INSTALL &amp; AGENT BRIEF — gnome-extensions install --force seabed@studio2201.github.io.shell-extension.zip ]</summary>
+      <p>UUID: <code>seabed@studio2201.github.io</code> · Compositor-native desktop icons inside <code>Main.layoutManager._backgroundGroup</code> · Zero GTK3 subprocesses, 0 shexli warnings · Part of the <a href="https://studio2201.com">Studio 2201</a> GNOME Suite by <a href="https://github.com/UberMetroid">@UberMetroid</a>.</p>
+    </details>
+
     <section class="hero" style="border-top: none;">
       <img class="hero-icon" src="brand/icon-512.png" width="120" height="120" alt="Seabed Icon" />
       <span class="eyebrow">seabed@studio2201.github.io · Wayland-First · Zero Subprocesses</span>
@@ -249,6 +233,12 @@
           </div>
         </div>
       </div>
+
+      <aside class="ticker" aria-label="Seabed Architecture Telemetry">
+        <div class="ticker-track">
+          <span class="chip">SEABED v1.5.0 · COMPOSITOR DESKTOP ICONS</span><span class="chip">_BACKGROUNDGROUP LAYER</span><span class="chip">BIDIRECTIONAL NAUTILUS DND</span><span class="chip">LIVE IMAGE THUMBNAILS</span><span class="chip">ONE-CLICK SUITE COLOR SYNC</span><span class="chip">ZERO SUBPROCESSES · 0 SHEXLI WARNINGS</span><span class="chip">SEABED v1.5.0 · COMPOSITOR DESKTOP ICONS</span>
+        </div>
+      </aside>
     </section>
 
     <section id="features">
@@ -290,9 +280,17 @@ gnome-extensions enable seabed@studio2201.github.io</pre>
     <div class="container">
       <p>
         <strong>Seabed</strong> (<code>seabed@studio2201.github.io</code>) · Released under <a href="https://github.com/studio2201/seabed/blob/main/LICENSE">GPL-3.0-or-later</a> · Derived from Desktop Icons NG (Sergio Costas, Carlos Soriano, &amp; contributors).<br>
-        <a href="https://github.com/studio2201/seabed">⭐ Star on GitHub</a> · <a href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee — Help send my daughter to college</a> · <a href="https://studio2201.github.io/kelp/">Kelp Auto-Tiler</a> · <a href="https://studio2201.github.io/reef/">Reef Dock</a> · <a href="https://studio2201.github.io/shoal/">Shoal Tray</a>
+        <a href="https://studio2201.com">studio2201.com</a> · <a href="https://studio2201.github.io/kelp/">Kelp Tiler</a> · <a href="https://studio2201.github.io/reef/">Reef Dock</a> · <a href="https://studio2201.github.io/tide/">Tide Launcher</a> · <a href="https://studio2201.github.io/coral/">Coral Grid</a> · <a href="https://studio2201.github.io/shoal/">Shoal Tray</a> · <a href="https://github.com/UberMetroid">@UberMetroid</a> · <a href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee</a>
       </p>
     </div>
   </footer>
+  <div class="chibi-dock">
+    <a class="dock-pill" href="https://ubermetroid.github.io/tuition-not-coffee" title="Tuition, Not Coffee">🎓</a>
+    <div class="dock-bubble">
+      <strong>STUDIO 2201 // SEABED v1.5.0</strong><br>
+      <a href="https://studio2201.com">studio2201.com</a> · <a href="https://studio2201.github.io/kelp/">Kelp</a> · <a href="https://studio2201.github.io/reef/">Reef</a> · <a href="https://studio2201.github.io/tide/">Tide</a> · <a href="https://studio2201.github.io/coral/">Coral</a> · <a href="https://studio2201.github.io/shoal/">Shoal</a><br>
+      <a href="https://ubermetroid.github.io/tuition-not-coffee">🎓 Tuition, Not Coffee →</a>
+    </div>
+  </div>
 </body>
 </html>
