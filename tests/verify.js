@@ -103,12 +103,12 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.4.0',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.5.0',
         '"name": "Studio 2201: Seabed (Desktop Icons)"', 'Sync Color Across Suite', 'sync_color_across_suite',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'should-handle-sequence', 'may-recognize', 'Clutter.EventPhase',
         'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
-        'thumbnail::path', 'load_square_image_gicon', '"session-modes"', 'refresh_file_manager_cache',
+        'thumbnail::path', 'load_square_image_gicon', '"seabed@studio2201.github.io"', 'refresh_file_manager_cache',
         'tile.update(entry, pos', 'Promise.all([', 'NETWORK_SCHEMES', '_dragInProgress',
         'seabed-drop-preview', 'Main.xdndHandler', 'SELECTION_DND', 'read_external_dnd_uris', 'set_drop_hover',
     ];
@@ -127,12 +127,12 @@ async function verify_behavioral_and_gtk_suite() {
         const mem_backend = Gio.memory_settings_backend_new();
         const ext_settings = new Gio.Settings({ settings_schema: src.lookup('org.gnome.shell.extensions.seabed', true), backend: mem_backend });
         const s = new ExtensionSettings(ext_settings);
-        const suite_dir = GLib.build_filenamev([tmp_dir, 'seabed@ubermetroid.github.io', 'schemas']), suite_comp = GLib.build_filenamev([suite_dir, 'gschemas.compiled']);
+        const suite_dir = GLib.build_filenamev([tmp_dir, 'seabed@studio2201.github.io', 'schemas']), suite_comp = GLib.build_filenamev([suite_dir, 'gschemas.compiled']);
         GLib.mkdir_with_parents(suite_dir, 0o755);
         Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, 'gschemas.compiled'])).copy(Gio.File.new_for_path(suite_comp), Gio.FileCopyFlags.OVERWRITE, null, null);
         assert(SUITE_COLOR_TARGETS.length === 5 && sync_color_across_suite('#6ad7e1', tmp_dir, mem_backend) === 1 && s.border_color_rgba() === 'rgba(106, 215, 225, 1)', 'suite sync');
         s.reset_defaults();
-        for (const p of [suite_comp, suite_dir, GLib.build_filenamev([tmp_dir, 'seabed@ubermetroid.github.io'])]) Gio.File.new_for_path(p).delete(null);
+        for (const p of [suite_comp, suite_dir, GLib.build_filenamev([tmp_dir, 'seabed@studio2201.github.io'])]) Gio.File.new_for_path(p).delete(null);
 
         assert(s.icon_size() === 'standard' && s.start_corner() === 'top-left' && s.arrange_order() === 'NAME', 'defaults');
         assert(s.show_home() && s.show_trash() && s.show_volumes() && !s.show_network_volumes(), 'special defaults');

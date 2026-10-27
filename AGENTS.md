@@ -2,7 +2,7 @@
 
 ## 1. Global Engineering Philosophy
 
-Seabed (`seabed@ubermetroid.github.io`) is built on four uncompromising engineering pillars:
+Seabed (`seabed@studio2201.github.io`) is built on four uncompromising engineering pillars:
 
 1. **Linus Torvalds' "Good Taste"**: Eliminate special-case branching through clean data representation (immutable frozen enums, normalized desktop entry records, and pure grid-slot / tile-style calculators).
 2. **UNIX Philosophy**: Each module ("page") does one thing well, composes cleanly via explicit ES2022 imports, and avoids hidden global state.

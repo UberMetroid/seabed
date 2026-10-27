@@ -187,7 +187,7 @@ export function build_about_page() {
         subtitle: 'Zero-subprocess, zero-telemetry Wayland desktop icons extension for GNOME Shell',
     });
     ver_row.add_suffix(new Gtk.Label({
-        label: 'v1.4.0', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
+        label: 'v1.5.0', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
     }));
     header_group.add(ver_row);
 
@@ -210,9 +210,9 @@ export function build_about_page() {
     add_link_row(
         support_group,
         'Star Seabed on GitHub',
-        'Star UberMetroid/seabed to help other GNOME &amp; Linux users discover Seabed',
+        'Star studio2201/seabed to help other GNOME &amp; Linux users discover Seabed',
         'Star on GitHub',
-        'https://github.com/UberMetroid/seabed',
+        'https://github.com/studio2201/seabed',
     );
     add_link_row(
         support_group,
@@ -220,21 +220,21 @@ export function build_about_page() {
         "Skip the coffee — 100% of sponsorships go toward my daughter's college &amp; future fund",
         'Tuition, Not Coffee',
         'https://ubermetroid.github.io/tuition-not-coffee',
-        'https://github.com/UberMetroid/seabed',
+        'https://github.com/studio2201/seabed',
     );
     add_link_row(
         support_group,
         'Project Website &amp; Documentation',
         'Explore the Seabed feature guide, Kelp + Reef + Shoal overview, and configuration reference',
         'Open Website',
-        'https://ubermetroid.github.io/seabed/',
+        'https://studio2201.github.io/seabed/',
     );
     add_link_row(
         support_group,
         'Report an Issue or Request a Feature',
         'Found a bug or have a feature request? Open an issue on GitHub',
         'Report Issue',
-        'https://github.com/UberMetroid/seabed/issues',
+        'https://github.com/studio2201/seabed/issues',
     );
 
     page.add(support_group);

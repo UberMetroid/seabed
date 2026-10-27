@@ -40,19 +40,19 @@ jobs:
             --schema=schemas/org.gnome.shell.extensions.seabed.gschema.xml \
             --extra-source=desktop \
             --extra-source=ui
-          unzip -l dist/seabed@ubermetroid.github.io.shell-extension.zip
+          unzip -l dist/seabed@studio2201.github.io.shell-extension.zip
 
       - name: Run shexli EGO static review analyzer (0 errors, 0 warnings)
         run: |
-          pipx run shexli dist/seabed@ubermetroid.github.io.shell-extension.zip
+          pipx run shexli dist/seabed@studio2201.github.io.shell-extension.zip
 
       - name: Official EGO Review Gate (Metadata, Zip Audit, & gnome-extensions install)
         run: |
           set -euo pipefail
-          ZIP="dist/seabed@ubermetroid.github.io.shell-extension.zip"
+          ZIP="dist/seabed@studio2201.github.io.shell-extension.zip"
 
           echo "==> 1. Validating metadata.json required EGO fields..."
-          jq -e '.uuid == "seabed@ubermetroid.github.io" and .name == "Studio 2201: Seabed (Desktop Icons)" and (.["shell-version"] | length >= 1) and .["settings-schema"] == "org.gnome.shell.extensions.seabed"' extension/metadata.json >/dev/null
+          jq -e '.uuid == "seabed@studio2201.github.io" and .name == "Studio 2201: Seabed (Desktop Icons)" and (.["shell-version"] | length >= 1) and .["settings-schema"] == "org.gnome.shell.extensions.seabed"' extension/metadata.json >/dev/null
 
           echo "==> 2. Auditing .shell-extension.zip for EGO forbidden files..."
           CONTENTS="$(unzip -Z1 "$ZIP")"
@@ -73,11 +73,11 @@ jobs:
 
           echo "==> 4. Testing installation via official gnome-extensions CLI..."
           gnome-extensions install --force "$ZIP"
-          test -f "$HOME/.local/share/gnome-shell/extensions/seabed@ubermetroid.github.io/extension.js"
-          test -f "$HOME/.local/share/gnome-shell/extensions/seabed@ubermetroid.github.io/metadata.json"
+          test -f "$HOME/.local/share/gnome-shell/extensions/seabed@studio2201.github.io/extension.js"
+          test -f "$HOME/.local/share/gnome-shell/extensions/seabed@studio2201.github.io/metadata.json"
 
       - name: Upload EGO extension zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: seabed-shell-extension-zip
-          path: dist/seabed@ubermetroid.github.io.shell-extension.zip
+          path: dist/seabed@studio2201.github.io.shell-extension.zip

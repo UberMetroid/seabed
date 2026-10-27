@@ -7,11 +7,11 @@ import Gio from 'gi://Gio';
 const DEFAULT_RGBA = Object.freeze({ red: 255, green: 0, blue: 0, alpha: 1.0 });
 
 export const SUITE_COLOR_TARGETS = Object.freeze([
-    Object.freeze(['coral@ubermetroid.github.io', 'org.gnome.shell.extensions.coral', 'border-color-rgba']),
-    Object.freeze(['kelp@ubermetroid.github.io', 'org.gnome.shell.extensions.kelp', 'hint-color-rgba']),
-    Object.freeze(['reef@ubermetroid.github.io', 'org.gnome.shell.extensions.reef', 'border-color-rgba']),
-    Object.freeze(['seabed@ubermetroid.github.io', 'org.gnome.shell.extensions.seabed', 'border-color-rgba']),
-    Object.freeze(['tide@ubermetroid.github.io', 'org.gnome.shell.extensions.tide', 'border-color-rgba']),
+    Object.freeze(['coral@studio2201.github.io', 'org.gnome.shell.extensions.coral', 'border-color-rgba']),
+    Object.freeze(['kelp@studio2201.github.io', 'org.gnome.shell.extensions.kelp', 'hint-color-rgba']),
+    Object.freeze(['reef@studio2201.github.io', 'org.gnome.shell.extensions.reef', 'border-color-rgba']),
+    Object.freeze(['seabed@studio2201.github.io', 'org.gnome.shell.extensions.seabed', 'border-color-rgba']),
+    Object.freeze(['tide@studio2201.github.io', 'org.gnome.shell.extensions.tide', 'border-color-rgba']),
 ]);
 
 function clamp_byte(v) {

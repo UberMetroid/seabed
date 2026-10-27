@@ -4,17 +4,17 @@
 
 # Seabed
 
-[![CI & EGO Bundle Verification](https://github.com/UberMetroid/seabed/actions/workflows/ci.yml/badge.svg)](https://github.com/UberMetroid/seabed/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/UberMetroid/seabed)](https://github.com/UberMetroid/seabed/releases/latest)
+[![CI & EGO Bundle Verification](https://github.com/studio2201/seabed/actions/workflows/ci.yml/badge.svg)](https://github.com/studio2201/seabed/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/studio2201/seabed)](https://github.com/studio2201/seabed/releases/latest)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![Sponsor: Tuition, Not Coffee](https://img.shields.io/badge/Sponsor-Tuition%2C%20Not%20Coffee%20%F0%9F%8E%93-2ec27e)](https://ubermetroid.github.io/tuition-not-coffee)
-[![Star on GitHub](https://img.shields.io/github/stars/UberMetroid/seabed?style=social)](https://github.com/UberMetroid/seabed)
+[![Star on GitHub](https://img.shields.io/github/stars/studio2201/seabed?style=social)](https://github.com/studio2201/seabed)
 
-**Seabed** (`seabed@ubermetroid.github.io`) is a fast, zero-subprocess, Wayland-native **Desktop Icons** extension for **GNOME Shell 45–50**. It renders your `~/Desktop` files, folders, `.desktop` application launchers, Personal Home folder, Trash (`trash:///`), and mounted external/network drives directly inside `Main.layoutManager._backgroundGroup`—with **zero fake `Meta.Window` objects**, **zero external GTK3 subprocesses**, **bidirectional native drag-and-drop** (grid repositioning with live target-slot highlight preview, dropping onto folders/Trash/drives, dragging from the desktop into open File Manager windows, and dragging from File Manager windows onto the desktop), **live image & thumbnail previews**, Kelp/Reef accent selection borders, native right-click context menus, and a **4-tab Libadwaita Settings & About dialog**.
+**Seabed** (`seabed@studio2201.github.io`) is a fast, zero-subprocess, Wayland-native **Desktop Icons** extension for **GNOME Shell 45–50**. It renders your `~/Desktop` files, folders, `.desktop` application launchers, Personal Home folder, Trash (`trash:///`), and mounted external/network drives directly inside `Main.layoutManager._backgroundGroup`—with **zero fake `Meta.Window` objects**, **zero external GTK3 subprocesses**, **bidirectional native drag-and-drop** (grid repositioning with live target-slot highlight preview, dropping onto folders/Trash/drives, dragging from the desktop into open File Manager windows, and dragging from File Manager windows onto the desktop), **live image & thumbnail previews**, Kelp/Reef accent selection borders, native right-click context menus, and a **4-tab Libadwaita Settings & About dialog**.
 
-Derived from [Desktop Icons NG (DING)](https://gitlab.com/rastersoft/desktop-icons-ng) (`ding@rastersoft.com`) — stripped of the external GTK3 `ding.js` subprocess and X11 window-title coordinate emulation hacks (`emulateX11WindowType.js`), and engineered under the same strict [`AGENTS.md`](AGENTS.md) Page Rule and EGO standards as [**Kelp**](https://github.com/UberMetroid/kelp), [**Reef**](https://github.com/UberMetroid/reef), and [**Shoal**](https://github.com/UberMetroid/shoal). Official project artwork is archived in [`brand/`](brand/) (`icon-512.png`, `icon-256.png`, `icon-160.png`, `favicon-64.png`).
+Derived from [Desktop Icons NG (DING)](https://gitlab.com/rastersoft/desktop-icons-ng) (`ding@rastersoft.com`) — stripped of the external GTK3 `ding.js` subprocess and X11 window-title coordinate emulation hacks (`emulateX11WindowType.js`), and engineered under the same strict [`AGENTS.md`](AGENTS.md) Page Rule and EGO standards as [**Kelp**](https://github.com/studio2201/kelp), [**Reef**](https://github.com/studio2201/reef), and [**Shoal**](https://github.com/studio2201/shoal). Official project artwork is archived in [`brand/`](brand/) (`icon-512.png`, `icon-256.png`, `icon-160.png`, `favicon-64.png`).
 
-> 🎓 **Support Seabed — [Tuition, Not Coffee — Help send my daughter to college](https://ubermetroid.github.io/tuition-not-coffee)** · 🌐 [**Project Website (`ubermetroid.github.io/seabed`)**](https://ubermetroid.github.io/seabed/) · ⭐ [**Star UberMetroid/seabed on GitHub**](https://github.com/UberMetroid/seabed)
+> 🎓 **Support Seabed — [Tuition, Not Coffee — Help send my daughter to college](https://ubermetroid.github.io/tuition-not-coffee)** · 🌐 [**Project Website (`studio2201.github.io/seabed`)**](https://studio2201.github.io/seabed/) · ⭐ [**Star studio2201/seabed on GitHub**](https://github.com/studio2201/seabed)
 
 ---
 
@@ -34,17 +34,17 @@ Derived from [Desktop Icons NG (DING)](https://gitlab.com/rastersoft/desktop-ico
 
 ## Quick Install
 
-Download `seabed@ubermetroid.github.io.shell-extension.zip` from [**GitHub Releases (`v1.4.0`)**](https://github.com/UberMetroid/seabed/releases/latest):
+Download `seabed@studio2201.github.io.shell-extension.zip` from [**GitHub Releases (`v1.5.0`)**](https://github.com/studio2201/seabed/releases/latest):
 
 ```bash
-gnome-extensions install --force seabed@ubermetroid.github.io.shell-extension.zip
-gnome-extensions enable seabed@ubermetroid.github.io
+gnome-extensions install --force seabed@studio2201.github.io.shell-extension.zip
+gnome-extensions enable seabed@studio2201.github.io
 ```
 
 Open the 4-tab Libadwaita Preferences window anytime by right-clicking the desktop or any desktop icon and choosing **Seabed Settings & About…**, or by running:
 
 ```bash
-gnome-extensions prefs seabed@ubermetroid.github.io
+gnome-extensions prefs seabed@studio2201.github.io
 ```
 
 ---
@@ -56,7 +56,7 @@ gnome-extensions prefs seabed@ubermetroid.github.io
 | **1. Desktop & Icons** | Show Personal Home Folder, Show Trash Icon (`trash:///`), Show Mounted External Drives, Show Network Drives, Show Hidden Files (`.dotfiles`), Show Symlink Emblem Badge, Single-Click to Open, Show on All Monitors, and **Reset to Seabed Defaults**. |
 | **2. Grid & Sorting** | Icon Size (`Tiny 32px`, `Small 36px`, `Standard 48px`, `Large 64px`), Start Corner (`Top Left`, `Top Right`, `Bottom Left`, `Bottom Right`), Arrange Order (`Name A -> Z`, `Name Z -> A`, `Modified Time`, `Kind / Type`, `File Size`), and Sort Special Folders Alongside Files toggle. |
 | **3. Appearance & Borders** | Dark Text in Icon Labels (for light wallpapers), Show Selection & Hover Border Ring, Accent Border Color picker, **Quick Color Presets** (*Gruvbox Amber*, *Kelp Emerald*, *Ocean Cyan*, *Coral Red*), **Sync Color Across Suite** (`Sync Suite Color` across all installed Studio 2201 extensions), Border Width (`0–8 px`), and Border Corner Radius (`0–24 px`). |
-| **4. About & Support** | Release version (`v1.4.0`), `GPL-3.0-or-later` license & Desktop Icons NG attribution, **Star Seabed on GitHub**, **Tuition, Not Coffee — Help send my daughter to college**, **Project Website**, and **Report an Issue**. |
+| **4. About & Support** | Release version (`v1.5.0`), `GPL-3.0-or-later` license & Desktop Icons NG attribution, **Star Seabed on GitHub**, **Tuition, Not Coffee — Help send my daughter to college**, **Project Website**, and **Report an Issue**. |
 
 ---
 
@@ -80,7 +80,7 @@ gjs -m tests/verify.js
 gnome-extensions pack extension --force --out-dir=dist \
   --schema=schemas/org.gnome.shell.extensions.seabed.gschema.xml \
   --extra-source=desktop --extra-source=ui
-pipx run shexli dist/seabed@ubermetroid.github.io.shell-extension.zip
+pipx run shexli dist/seabed@studio2201.github.io.shell-extension.zip
 ```
 
 ---
@@ -90,8 +90,8 @@ pipx run shexli dist/seabed@ubermetroid.github.io.shell-extension.zip
 If Seabed, Shoal, Reef, and Kelp improve your daily Linux workflow, please consider supporting development:
 
 - 🎓 **Sponsor / Donate**: [**Tuition, Not Coffee — Help send my daughter to college**](https://ubermetroid.github.io/tuition-not-coffee)
-- 🌐 **Project Website**: [**ubermetroid.github.io/seabed**](https://ubermetroid.github.io/seabed/)
-- ⭐ **Star on GitHub**: [**github.com/UberMetroid/seabed**](https://github.com/UberMetroid/seabed)
+- 🌐 **Project Website**: [**studio2201.github.io/seabed**](https://studio2201.github.io/seabed/)
+- ⭐ **Star on GitHub**: [**github.com/studio2201/seabed**](https://github.com/studio2201/seabed)
 
 ---
 
