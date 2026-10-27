@@ -52,7 +52,7 @@ jobs:
           ZIP="dist/seabed@ubermetroid.github.io.shell-extension.zip"
 
           echo "==> 1. Validating metadata.json required EGO fields..."
-          jq -e '.uuid == "seabed@ubermetroid.github.io" and .name == "Seabed" and (.["shell-version"] | length >= 1) and .["settings-schema"] == "org.gnome.shell.extensions.seabed"' extension/metadata.json >/dev/null
+          jq -e '.uuid == "seabed@ubermetroid.github.io" and .name == "Studio 2201: Seabed (Desktop Icons)" and (.["shell-version"] | length >= 1) and .["settings-schema"] == "org.gnome.shell.extensions.seabed"' extension/metadata.json >/dev/null
 
           echo "==> 2. Auditing .shell-extension.zip for EGO forbidden files..."
           CONTENTS="$(unzip -Z1 "$ZIP")"

@@ -1,7 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// CSS color parser, sRGB relative luminance calculator, and contrast palette selector.
+// CSS color parser, sRGB relative luminance calculator, and suite-wide accent color synchronizer.
+
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
 const DEFAULT_RGBA = Object.freeze({ red: 255, green: 0, blue: 0, alpha: 1.0 });
+
+export const SUITE_COLOR_TARGETS = Object.freeze([
+    Object.freeze(['coral@ubermetroid.github.io', 'org.gnome.shell.extensions.coral', 'border-color-rgba']),
+    Object.freeze(['kelp@ubermetroid.github.io', 'org.gnome.shell.extensions.kelp', 'hint-color-rgba']),
+    Object.freeze(['reef@ubermetroid.github.io', 'org.gnome.shell.extensions.reef', 'border-color-rgba']),
+    Object.freeze(['seabed@ubermetroid.github.io', 'org.gnome.shell.extensions.seabed', 'border-color-rgba']),
+    Object.freeze(['tide@ubermetroid.github.io', 'org.gnome.shell.extensions.tide', 'border-color-rgba']),
+]);
 
 function clamp_byte(v) {
     const n = Number(v);
@@ -82,4 +93,31 @@ export function is_dark_rgba(rgba) {
 export function text_color_for_css(css_color) {
     const parsed = parse_rgba(css_color);
     return is_dark_rgba(parsed) ? '#ffffff' : '#000000';
+}
+
+export function sync_color_across_suite(css_color, ext_base_dir = null, backend = null) {
+    const normalized = format_rgba(parse_rgba(css_color));
+    const base_dir = ext_base_dir || GLib.build_filenamev([GLib.get_user_data_dir(), 'gnome-shell', 'extensions']);
+    const default_src = Gio.SettingsSchemaSource.get_default();
+    let updated = 0;
+    for (let i = 0; i < SUITE_COLOR_TARGETS.length; i += 1) {
+        const [uuid, schema_id, key] = SUITE_COLOR_TARGETS[i];
+        const schema_dir = GLib.build_filenamev([base_dir, uuid, 'schemas']);
+        const compiled = GLib.build_filenamev([schema_dir, 'gschemas.compiled']);
+        if (!GLib.file_test(compiled, GLib.FileTest.IS_REGULAR)) continue;
+        try {
+            const src = Gio.SettingsSchemaSource.new_from_directory(schema_dir, default_src, false);
+            const schema = src.lookup(schema_id, true);
+            if (!schema || !schema.has_key(key)) continue;
+            const gs = backend
+                ? new Gio.Settings({ settings_schema: schema, backend })
+                : new Gio.Settings({ settings_schema: schema });
+            if (gs.is_writable(key)) {
+                gs.set_string(key, normalized);
+                updated += 1;
+            }
+        } catch (_e) { /* skip unavailable extension schema */ }
+    }
+    Gio.Settings.sync();
+    return updated;
 }

@@ -5,7 +5,7 @@ import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
-import { format_rgba, parse_rgba } from './color.js';
+import { format_rgba, parse_rgba, sync_color_across_suite } from './color.js';
 
 export const BORDER_PRESETS = Object.freeze([
     ['Gruvbox Amber', 'rgb(251,184,108)'],
@@ -129,6 +129,15 @@ export function build_appearance_page(ext_settings, settings, signals) {
             }
         },
     );
+    const sync_row = new Adw.ActionRow({
+        title: 'Sync Color Across Suite',
+        subtitle: 'Apply this accent border color to all installed Studio 2201 extensions (Coral, Kelp, Reef, Seabed, Tide)',
+    });
+    const sync_btn = new Gtk.Button({ label: 'Sync Suite Color', valign: Gtk.Align.CENTER, css_classes: ['pill'] });
+    sync_btn.connect('clicked', () => sync_color_across_suite(settings.border_color_rgba()));
+    sync_row.add_suffix(sync_btn);
+    sync_row.activatable_widget = sync_btn;
+
     const [bw_row, bw_spin] = make_spin_row(
         'Border Width (px)',
         'Thickness of the selection and hover border ring (0–8 px, default 2 px)',
@@ -139,7 +148,7 @@ export function build_appearance_page(ext_settings, settings, signals) {
         'Corner rounding of desktop icon tiles (0–24 px, default 12 px)',
         settings.border_radius(), 0, 24, 2, (v) => settings.set_border_radius(v),
     );
-    for (const r of [show_row, color_row, preset_row, bw_row, br_row]) bdr_group.add(r);
+    for (const r of [show_row, color_row, preset_row, sync_row, bw_row, br_row]) bdr_group.add(r);
     page.add(bdr_group);
 
     const sync_appearance = () => {
@@ -178,7 +187,7 @@ export function build_about_page() {
         subtitle: 'Zero-subprocess, zero-telemetry Wayland desktop icons extension for GNOME Shell',
     });
     ver_row.add_suffix(new Gtk.Label({
-        label: 'v1.3.1', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
+        label: 'v1.4.0', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
     }));
     header_group.add(ver_row);
 

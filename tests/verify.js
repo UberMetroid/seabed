@@ -8,7 +8,7 @@ import { NETWORK_SCHEMES, is_network_mount, load_square_image_gicon } from '../e
 import {
     ICON_PIXEL_SIZES, build_drop_preview_inline_style, build_label_inline_style, build_tile_inline_style, compute_cell_dimensions, resolve_icon_pixel_size,
 } from '../extension/ui/tile_style.js';
-import { format_rgba, is_dark_rgba, parse_rgba, text_color_for_css } from '../extension/ui/settings/color.js';
+import { SUITE_COLOR_TARGETS, format_rgba, is_dark_rgba, parse_rgba, sync_color_across_suite, text_color_for_css } from '../extension/ui/settings/color.js';
 import { ARRANGE_ORDERS, ExtensionSettings, ICON_SIZES, START_CORNERS } from '../extension/ui/settings/gsettings.js';
 import { BORDER_PRESETS, bind_settings_keys, build_about_page, build_appearance_page } from '../extension/ui/settings/prefs_pages.js';
 
@@ -21,17 +21,13 @@ function assert(cond, msg) { if (!cond) throw new Error(`Verification failed: ${
 
 function read_text(path) {
     const [ok, bytes] = GLib.file_get_contents(path);
-    assert(ok, `failed to read ${path}`);
-    return DECODER.decode(bytes);
+    assert(ok, `failed to read ${path}`); return DECODER.decode(bytes);
 }
 
 function walk_repo(dir_path, js_files, dirs) {
     dirs.push(dir_path);
-    const enumerator = Gio.File.new_for_path(dir_path).enumerate_children(
-        'standard::name,standard::type', Gio.FileQueryInfoFlags.NONE, null,
-    );
-    let info;
-    while ((info = enumerator.next_file(null)) !== null) {
+    const enumerator = Gio.File.new_for_path(dir_path).enumerate_children('standard::name,standard::type', Gio.FileQueryInfoFlags.NONE, null);
+    for (let info; (info = enumerator.next_file(null)) !== null;) {
         const name = info.get_name();
         if (name.startsWith('.') || name === 'dist' || name === 'target') continue;
         const full = GLib.build_filenamev([dir_path, name]);
@@ -50,9 +46,7 @@ function verify_page_rules_and_lint(js_files, dirs) {
         assert(lines.length >= 16 && lines.length <= 256, `Page Rule violation: ${file} has ${lines.length} lines (16..=256)`);
         assert(lines[0] === '// SPDX-License-Identifier: GPL-3.0-or-later', `Missing SPDX header in ${file}`);
         assert(lines[1].startsWith('// ') && lines[1].length >= 12, `Missing concise module description on line 2 of ${file}`);
-        if (file.startsWith(EXT_ROOT)) {
-            for (const sym of legacy) assert(!content.includes(sym), `Forbidden legacy symbol '${sym}' in ${file}`);
-        }
+        if (file.startsWith(EXT_ROOT)) for (const sym of legacy) assert(!content.includes(sym), `Forbidden legacy symbol '${sym}' in ${file}`);
         for (let idx = 0; idx < lines.length; idx += 1) {
             const raw = lines[idx], ln = idx + 1, code = raw.split('//')[0];
             assert(raw.length <= 200, `Line ${ln} of ${file} exceeds 200 chars (${raw.length})`);
@@ -70,8 +64,7 @@ function verify_page_rules_and_lint(js_files, dirs) {
     for (const dir_path of dirs) {
         const enumerator = Gio.File.new_for_path(dir_path).enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
         const visible = [];
-        let info;
-        while ((info = enumerator.next_file(null)) !== null) {
+        for (let info; (info = enumerator.next_file(null)) !== null;) {
             const name = info.get_name();
             if (!name.startsWith('.') && name !== 'dist' && name !== 'target') visible.push(name);
         }
@@ -110,7 +103,8 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.3.1',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.4.0',
+        '"name": "Studio 2201: Seabed (Desktop Icons)"', 'Sync Color Across Suite', 'sync_color_across_suite',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'should-handle-sequence', 'may-recognize', 'Clutter.EventPhase',
         'Open in Terminal', 'DND.makeDraggable', 'name="icon-positions"',
@@ -124,18 +118,21 @@ function verify_process_boundaries_and_invariants() {
 }
 
 async function verify_behavioral_and_gtk_suite() {
-    const tmp_dir = GLib.dir_make_tmp('seabed-verify-XXXXXX');
-    const schema_xml = 'org.gnome.shell.extensions.seabed.gschema.xml';
+    const tmp_dir = GLib.dir_make_tmp('seabed-verify-XXXXXX'), schema_xml = 'org.gnome.shell.extensions.seabed.gschema.xml';
     const dst_xml = Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, schema_xml]));
     try {
         Gio.File.new_for_path(GLib.build_filenamev([EXT_ROOT, 'schemas', schema_xml])).copy(dst_xml, Gio.FileCopyFlags.OVERWRITE, null, null);
         assert(Gio.Subprocess.new(['glib-compile-schemas', tmp_dir], Gio.SubprocessFlags.NONE).wait_check(null), 'glib-compile-schemas');
         const src = Gio.SettingsSchemaSource.new_from_directory(tmp_dir, Gio.SettingsSchemaSource.get_default(), false);
-        const ext_settings = new Gio.Settings({
-            settings_schema: src.lookup('org.gnome.shell.extensions.seabed', true),
-            backend: Gio.memory_settings_backend_new(),
-        });
+        const mem_backend = Gio.memory_settings_backend_new();
+        const ext_settings = new Gio.Settings({ settings_schema: src.lookup('org.gnome.shell.extensions.seabed', true), backend: mem_backend });
         const s = new ExtensionSettings(ext_settings);
+        const suite_dir = GLib.build_filenamev([tmp_dir, 'seabed@ubermetroid.github.io', 'schemas']), suite_comp = GLib.build_filenamev([suite_dir, 'gschemas.compiled']);
+        GLib.mkdir_with_parents(suite_dir, 0o755);
+        Gio.File.new_for_path(GLib.build_filenamev([tmp_dir, 'gschemas.compiled'])).copy(Gio.File.new_for_path(suite_comp), Gio.FileCopyFlags.OVERWRITE, null, null);
+        assert(SUITE_COLOR_TARGETS.length === 5 && sync_color_across_suite('#6ad7e1', tmp_dir, mem_backend) === 1 && s.border_color_rgba() === 'rgba(106, 215, 225, 1)', 'suite sync');
+        s.reset_defaults();
+        for (const p of [suite_comp, suite_dir, GLib.build_filenamev([tmp_dir, 'seabed@ubermetroid.github.io'])]) Gio.File.new_for_path(p).delete(null);
 
         assert(s.icon_size() === 'standard' && s.start_corner() === 'top-left' && s.arrange_order() === 'NAME', 'defaults');
         assert(s.show_home() && s.show_trash() && s.show_volumes() && !s.show_network_volumes(), 'special defaults');
@@ -148,16 +145,11 @@ async function verify_behavioral_and_gtk_suite() {
         assert(!is_network_mount({ get_root: () => ({ get_uri_scheme: () => 'mtp' }) }), 'mtp removable mount');
         assert(!is_network_mount({ get_root: () => ({ get_uri_scheme: () => 'file' }) }), 'local file mount');
 
-        s.set_icon_size('large');
-        assert(s.icon_size() === 'large' && resolve_icon_pixel_size(s.icon_size()) === 64, 'large icon size');
-        s.set_icon_size('invalid');
-        assert(s.icon_size() === 'standard' && compute_cell_dimensions('tiny').icon_px === 32, 'fallback icon size');
-        s.set_border_width(99);
-        assert(s.border_width() === 8, 'clamp max border width');
-        s.set_border_radius(99);
-        assert(s.border_radius() === 24, 'clamp max border radius');
-        s.set_border_color_rgba('#2ec27e');
-        assert(s.border_color_rgba() === 'rgba(46, 194, 126, 1)', 'hex color normalization');
+        s.set_icon_size('large'); assert(s.icon_size() === 'large' && resolve_icon_pixel_size(s.icon_size()) === 64, 'large icon size');
+        s.set_icon_size('invalid'); assert(s.icon_size() === 'standard' && compute_cell_dimensions('tiny').icon_px === 32, 'fallback icon size');
+        s.set_border_width(99); assert(s.border_width() === 8, 'clamp max border width');
+        s.set_border_radius(99); assert(s.border_radius() === 24, 'clamp max border radius');
+        s.set_border_color_rgba('#2ec27e'); assert(s.border_color_rgba() === 'rgba(46, 194, 126, 1)', 'hex color normalization');
         assert(parse_rgba('#f008').red === 255 && parse_rgba('rgba(10, 20, 30, 50%)').alpha === 0.5, 'hex4 & pct alpha');
         assert(parse_rgba('#zzzzzz').red === 255 && parse_rgba('#zzzzzz').green === 0, 'malformed hex fallback');
         assert(is_dark_rgba(parse_rgba('#111111')) && text_color_for_css('#ffffff') === '#000000', 'luminance');
