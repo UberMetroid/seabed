@@ -169,7 +169,7 @@
         var k="amber";try{k=localStorage.getItem("studio2201_theme")||"amber";}catch(e){}
         window.setSuiteTheme(O[(O.indexOf(k)+1)%4]);
       };
-      try{var s=localStorage.getItem("studio2201_theme");if(s&&T[s])window.setSuiteTheme(s);}catch(e){}
+      try{var s=localStorage.getItem("studio2201_theme");if(s&&T[s]){window.setSuiteTheme(s);document.addEventListener("DOMContentLoaded",function(){window.setSuiteTheme(s);});}}catch(e){}
     })();
   </script>
 </head>
