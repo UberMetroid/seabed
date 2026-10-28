@@ -11,6 +11,7 @@ export const SUITE_COLOR_TARGETS = Object.freeze([
     Object.freeze(['kelp@studio2201.github.io', 'org.gnome.shell.extensions.kelp', 'hint-color-rgba']),
     Object.freeze(['reef@studio2201.github.io', 'org.gnome.shell.extensions.reef', 'border-color-rgba']),
     Object.freeze(['seabed@studio2201.github.io', 'org.gnome.shell.extensions.seabed', 'border-color-rgba']),
+    Object.freeze(['shoal@studio2201.github.io', 'org.gnome.shell.extensions.shoal', 'attention-color-rgba']),
     Object.freeze(['tide@studio2201.github.io', 'org.gnome.shell.extensions.tide', 'border-color-rgba']),
 ]);
 
