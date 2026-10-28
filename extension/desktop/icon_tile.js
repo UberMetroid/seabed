@@ -101,8 +101,11 @@ export class DesktopIconTile {
         });
         this.actor._delegate = this;
 
+        const vbox_orient = 'orientation' in St.BoxLayout.prototype
+            ? { orientation: Clutter.Orientation.VERTICAL }
+            : { vertical: true };
         const vbox = new St.BoxLayout({
-            style_class: 'seabed-icon-box', vertical: true,
+            style_class: 'seabed-icon-box', ...vbox_orient,
             x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.START,
         });
         this.icon_stack = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_align: Clutter.ActorAlign.CENTER });

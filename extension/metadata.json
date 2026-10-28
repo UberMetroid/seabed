@@ -5,8 +5,7 @@
     "url": "https://github.com/studio2201/seabed",
     "settings-schema": "org.gnome.shell.extensions.seabed",
     "gettext-domain": "seabed@studio2201.github.io",
-    "version": 9,
-    "version-name": "1.5.0",
+    "version-name": "1.6.0",
     "shell-version": [
         "45",
         "46",

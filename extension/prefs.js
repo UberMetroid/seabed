@@ -57,7 +57,7 @@ function build_desktop_page(ext_settings, settings, signals) {
         subtitle: 'Restore Standard 48px icons, Top-Left start corner, Name sort, and Coral Red accent border',
     });
     const reset_btn = new Gtk.Button({
-        label: 'Reset Defaults', valign: Gtk.Align.CENTER, css_classes: ['suggested-action'],
+        label: 'Reset Defaults', valign: Gtk.Align.CENTER, css_classes: ['destructive-action', 'pill'],
     });
     reset_btn.connect('clicked', () => settings.reset_defaults());
     reset_row.add_suffix(reset_btn);
@@ -154,11 +154,12 @@ export default class SeabedPreferences extends ExtensionPreferences {
         window.add(build_desktop_page(ext_settings, settings, signals));
         window.add(build_grid_page(ext_settings, settings, signals));
         window.add(build_appearance_page(ext_settings, settings, signals));
-        window.add(build_about_page());
-        window.connect('close-request', () => {
+        window.add(build_about_page(this.metadata?.['version-name']));
+        const cleanup = () => {
             for (const [obj, sig] of signals) obj.disconnect(sig);
             signals.length = 0;
-            return false;
-        });
+        };
+        window.connect('close-request', () => { cleanup(); return false; });
+        window.connect('destroy', cleanup);
     }
 }

@@ -30,6 +30,7 @@ export function make_spin_row(title, subtitle, value, min, max, step, on_change)
     spin.set_valign(Gtk.Align.CENTER);
     spin.connect('value-changed', () => on_change(spin.get_value_as_int()));
     row.add_suffix(spin);
+    row.activatable_widget = spin;
     return [row, spin];
 }
 
@@ -40,6 +41,7 @@ export function make_combo_row(title, subtitle, items, active_idx, on_change) {
     combo.set_active(active_idx >= 0 && active_idx < items.length ? active_idx : -1);
     combo.connect('changed', () => on_change(combo.get_active()));
     row.add_suffix(combo);
+    row.activatable_widget = combo;
     return [row, combo];
 }
 
@@ -112,14 +114,16 @@ export function build_appearance_page(ext_settings, settings, signals) {
     const color_btn = new Gtk.ColorButton({ rgba, use_alpha: true, valign: Gtk.Align.CENTER });
     color_btn.connect('color-set', () => settings.set_border_color_rgba(color_btn.get_rgba().to_string()));
     color_row.add_suffix(color_btn);
+    color_row.activatable_widget = color_btn;
 
-    const preset_labels = BORDER_PRESETS.map(([label]) => label);
+    const preset_labels = [...BORDER_PRESETS.map(([label]) => label), 'Custom Color'];
     const match_preset = (color) => BORDER_PRESETS.findIndex(([, c]) => format_rgba(parse_rgba(c)) === color);
+    const init_idx = match_preset(settings.border_color_rgba());
     const [preset_row, preset_combo] = make_combo_row(
         'Quick Color Presets',
         'One-click color presets matching Kelp and Reef accent borders',
         preset_labels,
-        match_preset(settings.border_color_rgba()),
+        init_idx >= 0 ? init_idx : BORDER_PRESETS.length,
         (idx) => {
             if (idx >= 0 && idx < BORDER_PRESETS.length) {
                 const css_color = BORDER_PRESETS[idx][1];
@@ -134,7 +138,10 @@ export function build_appearance_page(ext_settings, settings, signals) {
         subtitle: 'Apply this accent border color to all installed Studio 2201 extensions (Coral, Kelp, Reef, Seabed, Tide)',
     });
     const sync_btn = new Gtk.Button({ label: 'Sync Suite Color', valign: Gtk.Align.CENTER, css_classes: ['pill'] });
-    sync_btn.connect('clicked', () => sync_color_across_suite(settings.border_color_rgba()));
+    sync_btn.connect('clicked', () => {
+        const count = sync_color_across_suite(settings.border_color_rgba());
+        sync_btn.set_label(`Synced (${count})`);
+    });
     sync_row.add_suffix(sync_btn);
     sync_row.activatable_widget = sync_btn;
 
@@ -160,7 +167,8 @@ export function build_appearance_page(ext_settings, settings, signals) {
         const next_rgba = new Gdk.RGBA();
         if (next_rgba.parse(next_color) && !color_btn.get_rgba().equal(next_rgba)) color_btn.set_rgba(next_rgba);
         const next_idx = match_preset(next_color);
-        if (preset_combo.get_active() !== next_idx) preset_combo.set_active(next_idx);
+        const target_idx = next_idx >= 0 ? next_idx : BORDER_PRESETS.length;
+        if (preset_combo.get_active() !== target_idx) preset_combo.set_active(target_idx);
     };
     bind_settings_keys(
         ext_settings,
@@ -170,7 +178,7 @@ export function build_appearance_page(ext_settings, settings, signals) {
     return page;
 }
 
-export function build_about_page() {
+export function build_about_page(version_name = 'v1.6.0') {
     const page = new Adw.PreferencesPage({
         title: 'About & Support',
         icon_name: 'help-about-symbolic',
@@ -186,8 +194,9 @@ export function build_about_page() {
         title: 'Seabed Release Version',
         subtitle: 'Zero-subprocess, zero-telemetry Wayland desktop icons extension for GNOME Shell',
     });
+    const clean_ver = String(version_name || '1.6.0').replace(/^v/, '');
     ver_row.add_suffix(new Gtk.Label({
-        label: 'v1.5.0', valign: Gtk.Align.CENTER, css_classes: ['monospace'],
+        label: `v${clean_ver}`, valign: Gtk.Align.CENTER, css_classes: ['monospace'],
     }));
     header_group.add(ver_row);
 

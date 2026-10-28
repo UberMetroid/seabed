@@ -103,7 +103,7 @@ function verify_process_boundaries_and_invariants() {
         'https://ubermetroid.github.io/tuition-not-coffee',
         'Derived from Desktop Icons NG', '_backgroundGroup', '[seabed] rescan-debounce',
         '"45"', '"50"', '"settings-schema": "org.gnome.shell.extensions.seabed"',
-        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.5.0',
+        'name="icon-size"', 'name="start-corner"', 'name="arrange-order"', 'v1.6.0',
         '"name": "Studio 2201: Seabed (Desktop Icons)"', 'Sync Color Across Suite', 'sync_color_across_suite',
         'this.unload_theme()', 'load_stylesheet(file)', 'Support &amp; Community',
         'Clutter.ClickGesture', 'should-handle-sequence', 'may-recognize', 'Clutter.EventPhase',

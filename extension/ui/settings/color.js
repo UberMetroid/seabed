@@ -50,7 +50,8 @@ export function parse_rgba(input) {
         };
     }
 
-    const match = s.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+%?))?\s*\)$/i);
+    const num = '[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[-+]?\\d+)?';
+    const match = s.match(new RegExp(`^rgba?\\(\\s*(${num})\\s*,\\s*(${num})\\s*,\\s*(${num})(?:\\s*,\\s*(${num}%?))?\\s*\\)$`, 'i'));
     if (match) {
         let alpha = 1.0;
         if (match[4] !== undefined) {

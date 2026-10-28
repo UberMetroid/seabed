@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist>
+<schemalist gettext-domain="seabed@studio2201.github.io">
   <schema id="org.gnome.shell.extensions.seabed" path="/org/gnome/shell/extensions/seabed/">
     <key name="icon-size" type="s">
       <default>'standard'</default>
